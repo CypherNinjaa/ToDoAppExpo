@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -90,61 +90,75 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
     return () => clearInterval(interval);
   }, [fullText]);
 
-  const onRefresh = async () => {
+  const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await loadTasks();
     setRefreshing(false);
-  };
+  }, [loadTasks]);
 
-  // Get available tags
-  const availableTags = getAllTags(tasks);
+  // Memoize available tags calculation
+  const availableTags = useMemo(() => getAllTags(tasks), [tasks]);
 
-  // Process tasks (search, filter, sort)
-  const filteredAndSortedTasks = processTaskList(
-    tasks,
-    searchQuery,
-    useRegex,
-    {
-      categories: selectedCategories,
-      priorities: selectedPriorities,
-      statuses: selectedStatuses,
-      tags: selectedTags,
-    },
-    sortBy,
-    sortDirection
+  // Memoize expensive task processing (search, filter, sort)
+  const filteredAndSortedTasks = useMemo(
+    () =>
+      processTaskList(
+        tasks,
+        searchQuery,
+        useRegex,
+        {
+          categories: selectedCategories,
+          priorities: selectedPriorities,
+          statuses: selectedStatuses,
+          tags: selectedTags,
+        },
+        sortBy,
+        sortDirection
+      ),
+    [
+      tasks,
+      searchQuery,
+      useRegex,
+      selectedCategories,
+      selectedPriorities,
+      selectedStatuses,
+      selectedTags,
+      sortBy,
+      sortDirection,
+    ]
   );
 
-  // Filter handlers
-  const handleCategoryToggle = (category: TaskCategory) => {
+  // Memoize filter handlers
+  const handleCategoryToggle = useCallback((category: TaskCategory) => {
     setSelectedCategories((prev) =>
       prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
     );
-  };
+  }, []);
 
-  const handlePriorityToggle = (priority: TaskPriority) => {
+  const handlePriorityToggle = useCallback((priority: TaskPriority) => {
     setSelectedPriorities((prev) =>
       prev.includes(priority) ? prev.filter((p) => p !== priority) : [...prev, priority]
     );
-  };
+  }, []);
 
-  const handleStatusToggle = (status: TaskStatus) => {
+  const handleStatusToggle = useCallback((status: TaskStatus) => {
     setSelectedStatuses((prev) =>
       prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
     );
-  };
+  }, []);
 
-  const handleTagToggle = (tag: string) => {
+  const handleTagToggle = useCallback((tag: string) => {
     setSelectedTags((prev) =>
       prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
     );
-  };
+  }, []);
 
-  const handleClearAllFilters = () => {
+  const handleClearAllFilters = useCallback(() => {
     setSelectedCategories([]);
     setSelectedPriorities([]);
     setSelectedStatuses([]);
     setSelectedTags([]);
-  };
+  }, []);
 
   const hasActiveFilters =
     selectedCategories.length > 0 ||
@@ -281,28 +295,31 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
     }
   };
 
-  const handleEditTask = (taskId: string) => {
+  const handleEditTask = useCallback((taskId: string) => {
     setEditingTaskId(taskId);
     setShowTaskForm(true);
-  };
+  }, []);
 
-  const handleCloseTaskForm = () => {
+  const handleCloseTaskForm = useCallback(() => {
     setShowTaskForm(false);
     setEditingTaskId(undefined);
-  };
+  }, []);
 
-  // Empty state
-  const renderEmptyState = () => (
-    <View style={styles.emptyContainer}>
-      <Text style={styles.emptyIcon}>📋</Text>
-      <Text style={styles.emptyTitle}>$ ls -la /tasks/</Text>
-      <Text style={styles.emptyText}>// No tasks found</Text>
-      <Text style={styles.emptyHint}>
-        {searchQuery || hasActiveFilters
-          ? 'Try adjusting your search or filters'
-          : 'Create your first task to get started'}
-      </Text>
-    </View>
+  // Memoize empty state render
+  const renderEmptyState = useCallback(
+    () => (
+      <View style={styles.emptyContainer}>
+        <Text style={styles.emptyIcon}>📋</Text>
+        <Text style={styles.emptyTitle}>$ ls -la /tasks/</Text>
+        <Text style={styles.emptyText}>// No tasks found</Text>
+        <Text style={styles.emptyHint}>
+          {searchQuery || hasActiveFilters
+            ? 'Try adjusting your search or filters'
+            : 'Create your first task to get started'}
+        </Text>
+      </View>
+    ),
+    [searchQuery, hasActiveFilters]
   );
 
   // Loading state
@@ -426,6 +443,11 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
             />
           }
           showsVerticalScrollIndicator={false}
+          removeClippedSubviews={true}
+          maxToRenderPerBatch={10}
+          updateCellsBatchingPeriod={50}
+          initialNumToRender={10}
+          windowSize={5}
         />
       </View>
 

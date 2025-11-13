@@ -1,6 +1,6 @@
 // StatsCard - Statistics display with code theme
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore, useStatsStore } from '../../stores';
@@ -9,27 +9,31 @@ export const StatsCard: React.FC = () => {
   const tasks = useTaskStore((state) => state.tasks);
   const streak = useStatsStore((state) => state.streak);
 
-  // Calculate statistics
-  const totalCompleted = tasks.filter((t) => t.status === 'completed').length;
-  const totalTasks = tasks.length;
+  // Memoize statistics calculations
+  const stats = useMemo(() => {
+    const totalCompleted = tasks.filter((t) => t.status === 'completed').length;
+    const totalTasks = tasks.length;
 
-  // Calculate today's progress
-  const todayTasks = tasks.filter((t) => {
-    if (!t.dueDate) return false;
+    // Calculate today's progress
     const today = new Date();
-    const dueDate = new Date(t.dueDate);
-    return (
-      dueDate.getDate() === today.getDate() &&
-      dueDate.getMonth() === today.getMonth() &&
-      dueDate.getFullYear() === today.getFullYear()
-    );
-  });
-  const todayCompleted = todayTasks.filter((t) => t.status === 'completed').length;
-  const todayTotal = todayTasks.length;
-  const todayProgress = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
+    const todayTasks = tasks.filter((t) => {
+      if (!t.dueDate) return false;
+      const dueDate = new Date(t.dueDate);
+      return (
+        dueDate.getDate() === today.getDate() &&
+        dueDate.getMonth() === today.getMonth() &&
+        dueDate.getFullYear() === today.getFullYear()
+      );
+    });
+    const todayCompleted = todayTasks.filter((t) => t.status === 'completed').length;
+    const todayTotal = todayTasks.length;
+    const todayProgress = todayTotal > 0 ? Math.round((todayCompleted / todayTotal) * 100) : 0;
 
-  // Generate simple commit graph (last 7 days)
-  const generateCommitGraph = () => {
+    return { totalCompleted, totalTasks, todayProgress, todayCompleted, todayTotal };
+  }, [tasks]);
+
+  // Memoize commit graph generation (expensive date operations)
+  const commitGraph = useMemo(() => {
     const graph = [];
     const today = new Date();
 
@@ -56,9 +60,7 @@ export const StatsCard: React.FC = () => {
       graph.push(block);
     }
     return graph;
-  };
-
-  const commitGraph = generateCommitGraph();
+  }, [tasks]);
 
   return (
     <View style={styles.container}>
@@ -69,8 +71,8 @@ export const StatsCard: React.FC = () => {
       <View style={styles.row}>
         <Text style={styles.key}> totalCompleted</Text>
         <Text style={styles.separator}>: </Text>
-        <Text style={styles.numberValue}>{totalCompleted}</Text>
-        <Text style={styles.comment}>, // out of {totalTasks}</Text>
+        <Text style={styles.numberValue}>{stats.totalCompleted}</Text>
+        <Text style={styles.comment}>, // out of {stats.totalTasks}</Text>
       </View>
 
       {/* Current streak */}
@@ -85,9 +87,9 @@ export const StatsCard: React.FC = () => {
       <View style={styles.row}>
         <Text style={styles.key}> todayProgress</Text>
         <Text style={styles.separator}>: </Text>
-        <Text style={styles.stringValue}>"{todayProgress}%"</Text>
+        <Text style={styles.stringValue}>"{stats.todayProgress}%"</Text>
         <Text style={styles.comment}>
-          , // {todayCompleted}/{todayTotal} tasks
+          , // {stats.todayCompleted}/{stats.todayTotal} tasks
         </Text>
       </View>
 

@@ -1,6 +1,6 @@
 // TaskFormScreen - Complete Task Creation/Edit Form
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -81,7 +81,7 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
   }, [taskId, getTaskById]);
 
   // Validation
-  const validate = (): boolean => {
+  const validate = useCallback((): boolean => {
     const newErrors: { [key: string]: string } = {};
 
     if (!title.trim()) {
@@ -92,10 +92,10 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [title]);
 
   // Handle submit
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!validate()) {
       Alert.alert('Validation Error', 'Please check the form for errors');
       return;
@@ -134,10 +134,29 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [
+    validate,
+    isEditMode,
+    taskId,
+    title,
+    description,
+    priority,
+    category,
+    dueDate,
+    reminderDate,
+    reminderEnabled,
+    tags,
+    subtasks,
+    codeSnippet,
+    estimatedTime,
+    dependencies,
+    updateTask,
+    addTask,
+    onClose,
+  ]);
 
   // Handle cancel
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
     if (title || description) {
       Alert.alert(
         'Discard Changes?',
@@ -150,7 +169,7 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
     } else {
       onClose();
     }
-  };
+  }, [onClose, title, description]);
 
   return (
     <KeyboardAvoidingView

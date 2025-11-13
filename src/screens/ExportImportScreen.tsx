@@ -1,6 +1,6 @@
 // ExportImportScreen - Export and Import data UI
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -39,7 +39,7 @@ export const ExportImportScreen: React.FC<ExportImportScreenProps> = ({ onClose 
 
   const categories = ['learning', 'coding', 'assignment', 'project', 'personal'];
 
-  const handleExport = async () => {
+  const handleExport = useCallback(async () => {
     try {
       setIsProcessing(true);
 
@@ -71,9 +71,9 @@ export const ExportImportScreen: React.FC<ExportImportScreenProps> = ({ onClose 
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [exportFormat, tasks, includeCompleted, includeArchived, selectedCategories]);
 
-  const handleImport = async () => {
+  const handleImport = useCallback(async () => {
     if (!importContent.trim()) {
       Alert.alert('Error', 'Please paste content to import');
       return;
@@ -147,9 +147,24 @@ export const ExportImportScreen: React.FC<ExportImportScreenProps> = ({ onClose 
     } finally {
       setIsProcessing(false);
     }
+  }, [importContent, tasks, addTask]);
+
+  const handlePickDocument = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*',
+        copyToCacheDirectory: true,
+      });
+
+      if (result.assets && result.assets.length > 0) {
+        setImportContent(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', error instanceof Error ? error.message : 'Failed to pick document');
+    }
   };
 
-  const handlePasteFromClipboard = async () => {
+  const handlePasteFromClipboard = useCallback(async () => {
     try {
       const text = await Clipboard.getStringAsync();
       if (text) {
@@ -160,15 +175,18 @@ export const ExportImportScreen: React.FC<ExportImportScreenProps> = ({ onClose 
     } catch (error) {
       Alert.alert('Error', 'Failed to read clipboard');
     }
-  };
+  }, []);
 
-  const toggleCategory = (category: string) => {
-    if (selectedCategories.includes(category)) {
-      setSelectedCategories(selectedCategories.filter((c) => c !== category));
-    } else {
-      setSelectedCategories([...selectedCategories, category]);
-    }
-  };
+  const toggleCategory = useCallback(
+    (category: string) => {
+      if (selectedCategories.includes(category)) {
+        setSelectedCategories(selectedCategories.filter((c) => c !== category));
+      } else {
+        setSelectedCategories([...selectedCategories, category]);
+      }
+    },
+    [selectedCategories]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.background }]}>

@@ -1,6 +1,6 @@
 // FocusTimeChart - Visual representation of focus time history
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { useThemeStore } from '../../stores/themeStore';
 import { Theme } from '../../constants';
@@ -20,16 +20,18 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
 
-  // Reverse data so most recent is on the right and visible
-  const reversedData = [...data].reverse();
+  // Memoize data processing
+  const chartData = useMemo(() => {
+    const reversedData = [...data].reverse();
+    const actualMax = Math.max(...reversedData.map((d) => d.focusTime));
+    const maxFocusTime = actualMax > 0 ? Math.max(actualMax, 30) : 60;
+    return { reversedData, maxFocusTime };
+  }, [data]);
 
-  // Get max value for scaling - use actual max or reasonable default
-  const actualMax = Math.max(...reversedData.map((d) => d.focusTime));
-  const maxFocusTime = actualMax > 0 ? Math.max(actualMax, 30) : 60; // Scale to at least 30min if there's data
   const maxHeight = 150;
 
   // Format date for display
-  const formatDate = (dateStr: string): string => {
+  const formatDate = useCallback((dateStr: string): string => {
     const date = new Date(dateStr);
     const today = new Date();
     const yesterday = new Date(today);
@@ -43,26 +45,29 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
       const weekday = date.toLocaleDateString('en-US', { weekday: 'short' });
       return weekday;
     }
-  };
+  }, []);
 
   // Format time for tooltip
-  const formatTime = (minutes: number): string => {
+  const formatTime = useCallback((minutes: number): string => {
     if (minutes === 0) return '0m';
     if (minutes < 60) return `${minutes}m`;
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
+  }, []);
 
   // Get bar color based on intensity
-  const getBarColor = (focusTime: number): string => {
-    if (focusTime === 0) return theme.border;
-    const intensity = focusTime / maxFocusTime;
-    if (intensity >= 0.7) return theme.success;
-    if (intensity >= 0.4) return theme.primary;
-    if (intensity >= 0.2) return theme.warning;
-    return theme.error + '80';
-  };
+  const getBarColor = useCallback(
+    (focusTime: number): string => {
+      if (focusTime === 0) return theme.border;
+      const intensity = focusTime / chartData.maxFocusTime;
+      if (intensity >= 0.7) return theme.success;
+      if (intensity >= 0.4) return theme.primary;
+      if (intensity >= 0.2) return theme.warning;
+      return theme.error + '80';
+    },
+    [theme, chartData.maxFocusTime]
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: theme.surface, borderColor: theme.border }]}>
@@ -80,7 +85,7 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
           {/* Y-axis labels */}
           <View style={styles.yAxis}>
             <Text style={[styles.axisLabel, { color: theme.textSecondary }]}>
-              {formatTime(maxFocusTime)}
+              {formatTime(chartData.maxFocusTime)}
             </Text>
             <View style={{ flex: 1 }} />
             <Text style={[styles.axisLabel, { color: theme.textSecondary }]}>0m</Text>
@@ -88,11 +93,11 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
 
           {/* Bars */}
           <View style={styles.barsContainer}>
-            {reversedData.map((day, index) => {
+            {chartData.reversedData.map((day, index) => {
               // Calculate bar height - ensure good visibility for any data
               const barHeight =
                 day.focusTime > 0
-                  ? Math.max((day.focusTime / maxFocusTime) * maxHeight, 20) // Minimum 20px for visibility
+                  ? Math.max((day.focusTime / chartData.maxFocusTime) * maxHeight, 20) // Minimum 20px for visibility
                   : 8; // Empty day bar
               const barColor = getBarColor(day.focusTime);
               const isEmpty = day.focusTime === 0;
@@ -147,8 +152,10 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
                       styles.dateLabel,
                       {
                         color:
-                          index === reversedData.length - 1 ? theme.primary : theme.textSecondary,
-                        fontWeight: index === reversedData.length - 1 ? '600' : '400',
+                          index === chartData.reversedData.length - 1
+                            ? theme.primary
+                            : theme.textSecondary,
+                        fontWeight: index === chartData.reversedData.length - 1 ? '600' : '400',
                       },
                     ]}
                   >

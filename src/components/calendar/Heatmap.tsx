@@ -1,6 +1,6 @@
 // Heatmap - GitHub-style contribution heatmap with Snake animation
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -25,8 +25,8 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
   const [snakePositions, setSnakePositions] = useState<SnakeSegment[]>([]);
   const [direction, setDirection] = useState<'up' | 'down' | 'left' | 'right'>('right');
 
-  // Calculate task completion per day for last 12 weeks
-  const generateHeatmapData = () => {
+  // Memoize heatmap data generation (expensive date calculations)
+  const heatmapData = useMemo(() => {
     const weeks = [];
     const today = new Date();
     const startDate = new Date(today);
@@ -56,18 +56,17 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
       weeks.push(days);
     }
     return weeks;
-  };
+  }, [tasks]);
 
   // Get color based on completion count
-  const getHeatColor = (count: number) => {
+  const getHeatColor = useCallback((count: number) => {
     if (count === 0) return Theme.colors.surface;
     if (count <= 2) return Theme.colors.success + '40';
     if (count <= 4) return Theme.colors.success + '80';
     if (count <= 6) return Theme.colors.primary + '80';
     return Theme.colors.function + '80';
-  };
+  }, []);
 
-  const heatmapData = generateHeatmapData();
   const monthNames = [
     'Jan',
     'Feb',
@@ -158,11 +157,14 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
   }, [snakePositions]);
 
   // Get snake segment index for size calculation
-  const getSnakeSegmentIndex = (weekIndex: number, dayIndex: number): number => {
-    return snakePositions.findIndex(
-      (pos) => pos.weekIndex === weekIndex && pos.dayIndex === dayIndex
-    );
-  };
+  const getSnakeSegmentIndex = useCallback(
+    (weekIndex: number, dayIndex: number): number => {
+      return snakePositions.findIndex(
+        (pos) => pos.weekIndex === weekIndex && pos.dayIndex === dayIndex
+      );
+    },
+    [snakePositions]
+  );
 
   return (
     <View style={styles.container}>

@@ -1,6 +1,6 @@
 // DayView - Detailed view of tasks for a specific day
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -16,15 +16,19 @@ export const DayView: React.FC<DayViewProps> = ({ selectedDate, onTaskPress, onA
   const tasks = useTaskStore((state) => state.tasks);
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
 
-  // Filter tasks for selected date
-  const dayTasks = tasks.filter((task) => {
-    if (!task.dueDate) return false;
-    const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
-    return taskDate === selectedDate;
-  });
+  // Memoize filtering
+  const dayTasks = useMemo(
+    () =>
+      tasks.filter((task) => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
+        return taskDate === selectedDate;
+      }),
+    [tasks, selectedDate]
+  );
 
   // Format date
-  const formatDate = (dateStr: string) => {
+  const formatDate = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const months = [
@@ -42,9 +46,9 @@ export const DayView: React.FC<DayViewProps> = ({ selectedDate, onTaskPress, onA
       'Dec',
     ];
     return `${days[date.getDay()]}, ${months[date.getMonth()]} ${date.getDate()}, ${date.getFullYear()}`;
-  };
+  }, []);
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     switch (category) {
       case 'learning':
         return '📚';
@@ -59,9 +63,9 @@ export const DayView: React.FC<DayViewProps> = ({ selectedDate, onTaskPress, onA
       default:
         return '📌';
     }
-  };
+  }, []);
 
-  const getStatusIndicator = (status: string) => {
+  const getStatusIndicator = useCallback((status: string) => {
     switch (status) {
       case 'completed':
         return '🟢';
@@ -72,9 +76,9 @@ export const DayView: React.FC<DayViewProps> = ({ selectedDate, onTaskPress, onA
       default:
         return '⚫';
     }
-  };
+  }, []);
 
-  const getPriorityColor = (priority: string) => {
+  const getPriorityColor = useCallback((priority: string) => {
     switch (priority) {
       case 'high':
         return Theme.colors.keyword;
@@ -85,7 +89,7 @@ export const DayView: React.FC<DayViewProps> = ({ selectedDate, onTaskPress, onA
       default:
         return Theme.colors.textSecondary;
     }
-  };
+  }, []);
 
   return (
     <View style={styles.container}>

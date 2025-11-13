@@ -9,6 +9,7 @@ import {
   Keyboard,
 } from 'react-native';
 import { Theme } from '../constants';
+import { TypingText } from '../components/common/TypingText';
 
 interface WelcomeScreenProps {
   onComplete: (username: string) => void;
@@ -172,27 +173,38 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onComplete, showSp
     return (
       <View style={styles.container}>
         <Animated.View style={[styles.setupContainer, { opacity: setupAnim }]}>
-          <Text style={styles.setupTitle}>$ ./install.sh</Text>
+          <TypingText text="$ ./install.sh" speed={80} style={styles.setupTitle} />
           <View style={styles.setupSteps}>
             {setupSteps.map((step, index) => (
-              <Animated.Text
+              <Animated.View
                 key={index}
-                style={[
-                  styles.setupStep,
-                  {
-                    opacity: index <= setupStep ? 1 : 0.3,
-                    color:
-                      index < setupStep
-                        ? Theme.colors.success
-                        : index === setupStep
-                          ? Theme.colors.primary
-                          : Theme.colors.textSecondary,
-                  },
-                ]}
+                style={{
+                  opacity: index <= setupStep ? 1 : 0.3,
+                }}
               >
-                {index <= setupStep ? '✓ ' : '○ '}
-                {step}
-              </Animated.Text>
+                {index <= setupStep ? (
+                  <Text
+                    style={[
+                      styles.setupStep,
+                      {
+                        color:
+                          index < setupStep
+                            ? Theme.colors.success
+                            : index === setupStep
+                              ? Theme.colors.primary
+                              : Theme.colors.textSecondary,
+                      },
+                    ]}
+                  >
+                    {index < setupStep ? '✓ ' : '○ '}
+                    {step}
+                  </Text>
+                ) : (
+                  <Text style={[styles.setupStep, { color: Theme.colors.textSecondary }]}>
+                    ○ {step}
+                  </Text>
+                )}
+              </Animated.View>
             ))}
           </View>
         </Animated.View>

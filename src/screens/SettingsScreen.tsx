@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
 import { Theme, CommonStyles } from '../constants';
 import { StorageService } from '../services/storage';
@@ -26,7 +26,9 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
   const [showExportImport, setShowExportImport] = useState(false);
   const fullText = '~$ ./configure.sh';
   const { getThemeColors } = useThemeStore();
-  const colors = getThemeColors();
+
+  // Memoize theme colors to prevent recalculation
+  const colors = useMemo(() => getThemeColors(), [getThemeColors]);
 
   useEffect(() => {
     let index = 0;
@@ -44,7 +46,8 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
     return () => clearInterval(interval);
   }, [fullText]);
 
-  const handleClearStorage = () => {
+  // Memoize callbacks
+  const handleClearStorage = useCallback(() => {
     Alert.alert(
       'Clear Storage',
       'This will reset the app and show the welcome screen again. Continue?',
@@ -67,22 +70,22 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
         },
       ]
     );
-  };
+  }, []);
 
-  const handleTestNotification = async () => {
+  const handleTestNotification = useCallback(async () => {
     Alert.alert('Testing Notifications', 'Check your notification tray in 1-2 seconds');
     await testNotificationDelivery();
-  };
+  }, []);
 
-  const handleTestAllChannels = async () => {
+  const handleTestAllChannels = useCallback(async () => {
     Alert.alert('Testing All Channels', 'You will receive 4 notifications over the next 8 seconds');
     await testNotificationChannels();
-  };
+  }, []);
 
-  const handleCancelNotifications = async () => {
+  const handleCancelNotifications = useCallback(async () => {
     await cancelAllTestNotifications();
     Alert.alert('Done', 'All scheduled notifications cancelled');
-  };
+  }, []);
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>

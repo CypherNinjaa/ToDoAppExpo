@@ -1,6 +1,6 @@
 // WeekView - Display tasks grouped by week
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -16,7 +16,7 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
   const [weekOffset, setWeekOffset] = useState(0); // 0 = current week, -1 = previous, +1 = next
 
   // Get start of week (Monday)
-  const getWeekStart = (offset: number) => {
+  const getWeekStart = useCallback((offset: number) => {
     const today = new Date();
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1); // Adjust for Sunday
@@ -24,10 +24,10 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
     weekStart.setDate(weekStart.getDate() + offset * 7);
     weekStart.setHours(0, 0, 0, 0);
     return weekStart;
-  };
+  }, []);
 
-  // Generate days of the week
-  const generateWeekDays = () => {
+  // Memoize week days generation
+  const weekDays = useMemo(() => {
     const weekStart = getWeekStart(weekOffset);
     const days = [];
     for (let i = 0; i < 7; i++) {
@@ -36,23 +36,25 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
       days.push(day);
     }
     return days;
-  };
+  }, [weekOffset, getWeekStart]);
 
-  const weekDays = generateWeekDays();
   const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
   // Get tasks for a specific day
-  const getTasksForDay = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0];
-    return tasks.filter((task) => {
-      if (!task.dueDate) return false;
-      const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
-      return taskDate === dateStr;
-    });
-  };
+  const getTasksForDay = useCallback(
+    (date: Date) => {
+      const dateStr = date.toISOString().split('T')[0];
+      return tasks.filter((task) => {
+        if (!task.dueDate) return false;
+        const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
+        return taskDate === dateStr;
+      });
+    },
+    [tasks]
+  );
 
   // Format week range
-  const formatWeekRange = () => {
+  const formatWeekRange = useCallback(() => {
     const start = weekDays[0];
     const end = weekDays[6];
     const months = [
@@ -70,9 +72,9 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
       'Dec',
     ];
     return `${months[start.getMonth()]} ${start.getDate()} - ${months[end.getMonth()]} ${end.getDate()}, ${end.getFullYear()}`;
-  };
+  }, [weekDays]);
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     switch (category) {
       case 'learning':
         return '📚';
@@ -87,9 +89,9 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
       default:
         return '📌';
     }
-  };
+  }, []);
 
-  const getStatusIndicator = (status: string) => {
+  const getStatusIndicator = useCallback((status: string) => {
     switch (status) {
       case 'completed':
         return '🟢';
@@ -100,7 +102,7 @@ export const WeekView: React.FC<WeekViewProps> = ({ onTaskPress }) => {
       default:
         return '⚫';
     }
-  };
+  }, []);
 
   return (
     <View style={styles.container}>

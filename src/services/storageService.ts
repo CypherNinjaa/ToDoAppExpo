@@ -1,4 +1,4 @@
-// Storage Service - Complete CRUD Operations with Error Handling
+// Storage Service - Complete CRUD Operations with Error Handling & Caching
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Task, UserSettings, TaskStatus, TaskPriority } from '../types/task.types';
@@ -28,9 +28,94 @@ const DEFAULT_SETTINGS: UserSettings = {
 
 /**
  * Storage Service Interface
- * Provides complete CRUD operations for tasks and settings
+ * Provides complete CRUD operations for tasks and settings with caching
  */
 export class StorageService {
+  // In-memory cache
+  private static tasksCache: Task[] | null = null;
+  private static settingsCache: UserSettings | null = null;
+  private static cacheTimestamp: number = 0;
+  private static readonly CACHE_TTL = 30000; // 30 seconds cache TTL
+
+  // Batch operations queue
+  private static batchQueue: Array<{ key: string; value: string }> = [];
+  private static batchTimeout: NodeJS.Timeout | null = null;
+  private static readonly BATCH_DELAY = 100; // 100ms debounce
+  // ==================== CACHE MANAGEMENT ====================
+
+  /**
+   * Check if cache is valid
+   */
+  private static isCacheValid(): boolean {
+    return Date.now() - this.cacheTimestamp < this.CACHE_TTL;
+  }
+
+  /**
+   * Invalidate cache
+   */
+  static invalidateCache(): void {
+    this.tasksCache = null;
+    this.settingsCache = null;
+    this.cacheTimestamp = 0;
+  }
+
+  /**
+   * Clear all caches
+   */
+  static clearCache(): void {
+    this.invalidateCache();
+  }
+
+  // ==================== BATCH OPERATIONS ====================
+
+  /**
+   * Queue a write operation for batching
+   */
+  private static queueBatchWrite(key: string, value: string): void {
+    // Add or update in queue
+    const existingIndex = this.batchQueue.findIndex((item) => item.key === key);
+    if (existingIndex >= 0) {
+      this.batchQueue[existingIndex].value = value;
+    } else {
+      this.batchQueue.push({ key, value });
+    }
+
+    // Debounce batch execution
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+    }
+
+    this.batchTimeout = setTimeout(() => {
+      this.executeBatch();
+    }, this.BATCH_DELAY);
+  }
+
+  /**
+   * Execute all queued batch operations
+   */
+  private static async executeBatch(): Promise<void> {
+    if (this.batchQueue.length === 0) return;
+
+    try {
+      const operations = this.batchQueue.map(({ key, value }) => [key, value] as [string, string]);
+      await AsyncStorage.multiSet(operations);
+      this.batchQueue = [];
+    } catch (error) {
+      throw new StorageError('Failed to execute batch operations', 'BATCH_ERROR');
+    }
+  }
+
+  /**
+   * Flush batch queue immediately
+   */
+  static async flushBatch(): Promise<void> {
+    if (this.batchTimeout) {
+      clearTimeout(this.batchTimeout);
+      this.batchTimeout = null;
+    }
+    await this.executeBatch();
+  }
+
   // ==================== INITIALIZATION ====================
 
   /**
@@ -81,23 +166,38 @@ export class StorageService {
   // ==================== TASK CRUD OPERATIONS ====================
 
   /**
-   * Get all tasks
+   * Get all tasks with caching
    */
   static async getTasks(): Promise<Task[]> {
     try {
+      // Return from cache if valid
+      if (this.tasksCache && this.isCacheValid()) {
+        return this.tasksCache;
+      }
+
       const tasksJson = await AsyncStorage.getItem(StorageKeys.TASKS);
-      if (!tasksJson) return [];
+      if (!tasksJson) {
+        this.tasksCache = [];
+        this.cacheTimestamp = Date.now();
+        return [];
+      }
 
       const tasks = JSON.parse(tasksJson);
 
       // Parse dates
-      return tasks.map((task: any) => ({
+      const parsedTasks = tasks.map((task: any) => ({
         ...task,
         createdAt: new Date(task.createdAt),
         dueDate: task.dueDate ? new Date(task.dueDate) : undefined,
         reminder: task.reminder ? new Date(task.reminder) : undefined,
         completedAt: task.completedAt ? new Date(task.completedAt) : undefined,
       }));
+
+      // Update cache
+      this.tasksCache = parsedTasks;
+      this.cacheTimestamp = Date.now();
+
+      return parsedTasks;
     } catch (error) {
       if (error instanceof SyntaxError) {
         throw new StorageError('Corrupted task data', 'TASK_PARSE_ERROR');
@@ -257,13 +357,19 @@ export class StorageService {
   }
 
   /**
-   * Save tasks array to storage
+   * Save tasks array to storage with batching and cache update
    */
   static async saveTasks(tasks: Task[]): Promise<void> {
     try {
       const tasksJson = JSON.stringify(tasks);
-      await AsyncStorage.setItem(StorageKeys.TASKS, tasksJson);
-      await AsyncStorage.setItem(StorageKeys.LAST_SYNC, new Date().toISOString());
+
+      // Update cache immediately
+      this.tasksCache = tasks;
+      this.cacheTimestamp = Date.now();
+
+      // Queue batch write
+      this.queueBatchWrite(StorageKeys.TASKS, tasksJson);
+      this.queueBatchWrite(StorageKeys.LAST_SYNC, new Date().toISOString());
     } catch (error) {
       throw new StorageError('Failed to save tasks', 'TASK_WRITE_ERROR');
     }
@@ -272,24 +378,37 @@ export class StorageService {
   // ==================== SETTINGS ====================
 
   /**
-   * Get user settings
+   * Get user settings with caching
    */
   static async getSettings(): Promise<UserSettings> {
     try {
+      // Return from cache if valid
+      if (this.settingsCache && this.isCacheValid()) {
+        return this.settingsCache;
+      }
+
       const settingsJson = await AsyncStorage.getItem(StorageKeys.SETTINGS);
 
       if (!settingsJson) {
+        this.settingsCache = DEFAULT_SETTINGS;
+        this.cacheTimestamp = Date.now();
         return DEFAULT_SETTINGS;
       }
 
-      return JSON.parse(settingsJson);
+      const settings = JSON.parse(settingsJson);
+
+      // Update cache
+      this.settingsCache = settings;
+      this.cacheTimestamp = Date.now();
+
+      return settings;
     } catch (error) {
       throw new StorageError('Failed to get settings', 'SETTINGS_READ_ERROR');
     }
   }
 
   /**
-   * Update user settings
+   * Update user settings with caching
    */
   static async setSettings(settings: Partial<UserSettings>): Promise<UserSettings> {
     try {
@@ -299,7 +418,12 @@ export class StorageService {
         ...settings,
       };
 
-      await AsyncStorage.setItem(StorageKeys.SETTINGS, JSON.stringify(updatedSettings));
+      // Update cache immediately
+      this.settingsCache = updatedSettings;
+      this.cacheTimestamp = Date.now();
+
+      // Queue batch write
+      this.queueBatchWrite(StorageKeys.SETTINGS, JSON.stringify(updatedSettings));
 
       return updatedSettings;
     } catch (error) {
