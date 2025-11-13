@@ -20,9 +20,9 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
 
-  // Get max value for scaling
-  const maxFocusTime = Math.max(...data.map((d) => d.focusTime), 1);
-  const maxHeight = 120;
+  // Get max value for scaling (ensure at least 60 minutes for proper scaling)
+  const maxFocusTime = Math.max(...data.map((d) => d.focusTime), 60);
+  const maxHeight = 150; // Increased from 120
 
   // Format date for display
   const formatDate = (dateStr: string): string => {
@@ -54,9 +54,9 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
   const getBarColor = (focusTime: number): string => {
     if (focusTime === 0) return theme.border;
     const intensity = focusTime / maxFocusTime;
-    if (intensity >= 0.8) return theme.success;
-    if (intensity >= 0.5) return theme.primary;
-    if (intensity >= 0.3) return theme.warning;
+    if (intensity >= 0.7) return theme.success;
+    if (intensity >= 0.4) return theme.primary;
+    if (intensity >= 0.2) return theme.warning;
     return theme.error + '60';
   };
 
@@ -85,18 +85,29 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
           {/* Bars */}
           <View style={styles.barsContainer}>
             {data.map((day, index) => {
+              // Calculate bar height with better minimum visibility
               const barHeight =
-                day.focusTime > 0 ? Math.max((day.focusTime / maxFocusTime) * maxHeight, 4) : 4;
+                day.focusTime > 0
+                  ? Math.max((day.focusTime / maxFocusTime) * maxHeight, 12) // Minimum 12px for visibility
+                  : 8; // Empty day bar
               const barColor = getBarColor(day.focusTime);
+              const isEmpty = day.focusTime === 0;
 
               return (
                 <View key={day.date} style={styles.barWrapper}>
                   <View style={styles.barContainer}>
                     {/* Pomodoro count indicator */}
                     {day.pomodoros > 0 && (
-                      <Text style={[styles.pomodoroCount, { color: theme.textSecondary }]}>
-                        {day.pomodoros}🍅
-                      </Text>
+                      <View
+                        style={[
+                          styles.pomodoroCountBadge,
+                          { backgroundColor: theme.primary + '20' },
+                        ]}
+                      >
+                        <Text style={[styles.pomodoroCount, { color: theme.primary }]}>
+                          {day.pomodoros}🍅
+                        </Text>
+                      </View>
                     )}
 
                     {/* Bar */}
@@ -105,12 +116,13 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
                         styles.bar,
                         {
                           height: barHeight,
-                          backgroundColor: barColor,
-                          borderColor: barColor === theme.border ? theme.border : barColor,
+                          backgroundColor: isEmpty ? theme.background : barColor,
+                          borderColor: barColor,
+                          borderWidth: isEmpty ? 1 : 2,
                         },
                       ]}
                     >
-                      {day.focusTime > 0 && (
+                      {day.focusTime > 0 && barHeight > 20 && (
                         <Text style={[styles.barLabel, { color: theme.background }]}>
                           {formatTime(day.focusTime)}
                         </Text>
@@ -122,7 +134,10 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
                   <Text
                     style={[
                       styles.dateLabel,
-                      { color: index === data.length - 1 ? theme.primary : theme.textSecondary },
+                      {
+                        color: index === data.length - 1 ? theme.primary : theme.textSecondary,
+                        fontWeight: index === data.length - 1 ? '600' : '400',
+                      },
                     ]}
                   >
                     {formatDate(day.date)}
@@ -181,7 +196,7 @@ const styles = StyleSheet.create({
   },
   chartContainer: {
     flexDirection: 'row',
-    height: 180,
+    height: 200, // Increased from 180
   },
   yAxis: {
     width: 50,
@@ -198,35 +213,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-end',
     flex: 1,
-    gap: 8,
+    gap: 12, // Increased from 8
     paddingBottom: 20,
   },
   barWrapper: {
     alignItems: 'center',
-    minWidth: 50,
+    minWidth: 60, // Increased from 50
   },
   barContainer: {
     flex: 1,
     justifyContent: 'flex-end',
     alignItems: 'center',
-    width: 40,
+    width: 48, // Increased from 40
+  },
+  pomodoroCountBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginBottom: 6,
   },
   pomodoroCount: {
-    fontFamily: Theme.typography.fontFamily.mono,
+    fontFamily: Theme.typography.fontFamily.monoBold,
     fontSize: 10,
-    marginBottom: 4,
   },
   bar: {
-    width: 40,
-    borderRadius: 4,
-    borderWidth: 1,
+    width: 48, // Increased from 40
+    borderRadius: 6, // Increased from 4
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'hidden',
+    minHeight: 8,
   },
   barLabel: {
     fontFamily: Theme.typography.fontFamily.monoBold,
-    fontSize: 9,
+    fontSize: 10, // Increased from 9
     textAlign: 'center',
   },
   dateLabel: {

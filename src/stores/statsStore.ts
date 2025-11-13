@@ -147,8 +147,9 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
     const weeklyFocusTime = get().getWeeklyFocusTime(tasks);
 
     const todayPomodoros = tasks.reduce((sum, task) => {
-      if (!task.completedAt) return sum;
-      const taskDate = new Date(task.completedAt);
+      if (!task.pomodoroCount) return sum;
+      // Use updatedAt or createdAt if completedAt is not set (in-progress tasks)
+      const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
       const today = new Date();
       if (taskDate.toDateString() === today.toDateString()) {
         return sum + (task.pomodoroCount || 0);
@@ -192,8 +193,9 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
     tasks.forEach((task) => {
       if (!task.totalFocusTime && !task.pomodoroCount) return;
 
-      // Use completedAt or createdAt as reference
-      const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
+      // Use createdAt as reference for when task was worked on
+      // This ensures in-progress tasks with focus time are counted
+      const taskDate = new Date(task.createdAt);
       const dateStr = taskDate.toISOString().split('T')[0];
 
       if (history.has(dateStr)) {
@@ -211,6 +213,7 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
     const today = new Date().toDateString();
     return tasks.reduce((sum, task) => {
       if (!task.totalFocusTime) return sum;
+      // Check when task was last modified/created for in-progress tasks without completedAt
       const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
       if (taskDate.toDateString() === today) {
         return sum + task.totalFocusTime;

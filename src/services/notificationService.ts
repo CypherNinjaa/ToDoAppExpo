@@ -2,8 +2,10 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 
-// Only configure notification handler if not in Expo Go
-if (!Constants.appOwnership || Constants.appOwnership === 'standalone') {
+// Only configure notification handler if NOT in Expo Go (SDK 53+ compatibility)
+const isExpoGo = Constants.appOwnership === 'expo';
+
+if (!isExpoGo) {
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
       shouldShowBanner: true,
@@ -22,6 +24,14 @@ class NotificationService {
    * @returns Promise<boolean> - true if permission granted, false otherwise
    */
   async requestPermissions(): Promise<boolean> {
+    // Skip in Expo Go to avoid SDK 53+ errors
+    const isExpoGo = Constants.appOwnership === 'expo';
+    if (isExpoGo) {
+      console.log('⚠️  Notifications disabled in Expo Go (SDK 53+)');
+      this.permissionGranted = false;
+      return false;
+    }
+
     try {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
@@ -50,6 +60,13 @@ class NotificationService {
    * @returns Promise<boolean>
    */
   async hasPermission(): Promise<boolean> {
+    // Skip in Expo Go to avoid SDK 53+ errors
+    const isExpoGo = Constants.appOwnership === 'expo';
+    if (isExpoGo) {
+      this.permissionGranted = false;
+      return false;
+    }
+
     try {
       const { status } = await Notifications.getPermissionsAsync();
       this.permissionGranted = status === 'granted';
@@ -136,6 +153,13 @@ class NotificationService {
     data?: Record<string, any>,
     channelId: string = 'task-reminders'
   ): Promise<string | null> {
+    // Don't schedule in Expo Go
+    const isExpoGo = Constants.appOwnership === 'expo';
+    if (isExpoGo) {
+      console.log('⚠️  Notification scheduling skipped (Expo Go)');
+      return null;
+    }
+
     try {
       const hasPermission = await this.hasPermission();
 
@@ -218,21 +242,21 @@ class NotificationService {
     data?: Record<string, any>,
     channelId: string = 'task-reminders'
   ): Promise<void> {
+    // Check if running in Expo Go
+    const isExpoGo = Constants.appOwnership === 'expo';
+
+    if (isExpoGo) {
+      // Notifications are not supported in Expo Go with SDK 53+
+      console.log('📱 Notification (Expo Go - not displayed):', title, '-', body);
+      return;
+    }
+
     try {
-      // Check if running in Expo Go
-      const isExpoGo = Constants.appOwnership === 'expo';
-
-      if (isExpoGo) {
-        // In Expo Go, we can still schedule local notifications
-        // Just not remote push notifications
-        console.log('📱 Local notification:', title, '-', body);
-      }
-
-      await this.scheduleNotification(title, body, null, data, channelId);
+      // Use null trigger for immediate delivery
+      await this.scheduleNotification(title, body, null as any, data, channelId);
     } catch (error) {
-      // Silently handle notification errors in Expo Go
       console.log(
-        'Notification scheduling skipped:',
+        'Notification scheduling failed:',
         error instanceof Error ? error.message : 'Unknown error'
       );
     }
@@ -269,21 +293,21 @@ class NotificationService {
       // Check if running in Expo Go
       const isExpoGo = Constants.appOwnership === 'expo';
 
-      if (isExpoGo && Platform.OS === 'android') {
-        console.log('⚠️  Running in Expo Go - Remote notifications not available');
-        console.log('✓ Local notifications will still work');
+      if (isExpoGo) {
+        console.log('⚠️  Running in Expo Go - Notifications disabled (SDK 53+)');
+        console.log('ℹ️  Build a development build to enable notifications');
+        console.log('✓ Notification service initialized (disabled mode)');
+        return true;
       }
 
-      // Configure notification channels (Android)
+      // Configure notification channels (Android) - only in standalone builds
       await this.configureNotificationChannels();
 
-      // Check/request permissions
+      // Check/request permissions (only in standalone builds)
       const hasPermission = await this.hasPermission();
 
       if (!hasPermission) {
         console.log('📱 Notification permissions not granted yet');
-        // Don't request immediately - let the user discover the feature
-        // Permission will be requested when they try to enable notifications
       } else {
         console.log('✓ Notification permissions granted');
       }
@@ -292,7 +316,8 @@ class NotificationService {
       return true;
     } catch (error) {
       console.error('Error initializing notification service:', error);
-      return false;
+      // Don't fail app initialization if notifications fail
+      return true;
     }
   }
 

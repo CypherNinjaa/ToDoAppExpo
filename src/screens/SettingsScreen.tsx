@@ -11,8 +11,6 @@ import {
 } from '../components/inputs';
 import { ExportImportScreen } from './ExportImportScreen';
 import { useThemeStore } from '../stores/themeStore';
-import { useThemeStore } from '../stores/themeStore';
-import { useThemeStore } from '../stores/themeStore';
 import {
   testNotificationDelivery,
   testNotificationChannels,
