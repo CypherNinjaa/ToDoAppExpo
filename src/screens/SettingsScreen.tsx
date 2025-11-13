@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView, Modal } from 'react-native';
 import { Theme, CommonStyles } from '../constants';
 import { StorageService } from '../services/storage';
 import {
@@ -9,6 +9,9 @@ import {
   DataManagement,
   TimerSettings,
 } from '../components/inputs';
+import { ExportImportScreen } from './ExportImportScreen';
+import { useThemeStore } from '../stores/themeStore';
+import { useThemeStore } from '../stores/themeStore';
 import { useThemeStore } from '../stores/themeStore';
 import {
   testNotificationDelivery,
@@ -22,6 +25,7 @@ interface SettingsScreenProps {
 
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
   const [displayedText, setDisplayedText] = useState('');
+  const [showExportImport, setShowExportImport] = useState(false);
   const fullText = '~$ ./configure.sh';
   const { getThemeColors } = useThemeStore();
   const colors = getThemeColors();
@@ -133,6 +137,25 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.comment }]}>// Data Management</Text>
             <DataManagement />
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                {
+                  backgroundColor: colors.success + '20',
+                  borderColor: colors.success,
+                  marginTop: Theme.spacing.md,
+                },
+              ]}
+              onPress={() => setShowExportImport(true)}
+            >
+              <Text style={[styles.testButtonText, { color: colors.success }]}>
+                $ export-import
+              </Text>
+              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
+                // Export & Import Tasks
+              </Text>
+            </TouchableOpacity>
           </View>
 
           {/* Notification Testing Section */}
@@ -197,6 +220,16 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Export/Import Modal */}
+      <Modal
+        visible={showExportImport}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowExportImport(false)}
+      >
+        <ExportImportScreen onClose={() => setShowExportImport(false)} />
+      </Modal>
     </View>
   );
 };
