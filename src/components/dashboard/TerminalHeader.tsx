@@ -1,9 +1,10 @@
 // TerminalHeader - Dashboard greeting with terminal aesthetics
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
+import { BlinkingCursor } from '../common/BlinkingCursor';
 
 interface TerminalHeaderProps {
   username?: string;
@@ -21,22 +22,25 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ username = 'user
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate task statistics
-  const pendingTasks = tasks.filter((t) => t.status === 'pending').length;
-  const inProgressTasks = tasks.filter((t) => t.status === 'in-progress').length;
-  const completedToday = tasks.filter((t) => {
-    if (t.status !== 'completed' || !t.completedAt) return false;
+  // Memoize task statistics calculations
+  const taskStats = useMemo(() => {
     const today = new Date();
-    const completedDate = new Date(t.completedAt);
-    return (
-      completedDate.getDate() === today.getDate() &&
-      completedDate.getMonth() === today.getMonth() &&
-      completedDate.getFullYear() === today.getFullYear()
-    );
-  }).length;
+    const pendingTasks = tasks.filter((t) => t.status === 'pending').length;
+    const inProgressTasks = tasks.filter((t) => t.status === 'in-progress').length;
+    const completedToday = tasks.filter((t) => {
+      if (t.status !== 'completed' || !t.completedAt) return false;
+      const completedDate = new Date(t.completedAt);
+      return (
+        completedDate.getDate() === today.getDate() &&
+        completedDate.getMonth() === today.getMonth() &&
+        completedDate.getFullYear() === today.getFullYear()
+      );
+    }).length;
+    return { pendingTasks, inProgressTasks, completedToday };
+  }, [tasks]);
 
   // Format date
-  const formatDate = () => {
+  const formatDate = useCallback(() => {
     const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const months = [
       'Jan',
@@ -53,14 +57,14 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ username = 'user
       'Dec',
     ];
     return `${days[currentTime.getDay()]} ${months[currentTime.getMonth()]} ${currentTime.getDate()}, ${currentTime.getFullYear()}`;
-  };
+  }, [currentTime]);
 
   // Format time
-  const formatTime = () => {
+  const formatTime = useCallback(() => {
     const hours = currentTime.getHours().toString().padStart(2, '0');
     const minutes = currentTime.getMinutes().toString().padStart(2, '0');
     return `${hours}:${minutes}`;
-  };
+  }, [currentTime]);
 
   return (
     <View style={styles.container}>
@@ -73,6 +77,7 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ username = 'user
         <Text style={styles.path}>~</Text>
         <Text style={styles.prompt}>$</Text>
         <Text style={styles.command}>./today.sh</Text>
+        <BlinkingCursor style={styles.cursor} />
       </View>
 
       {/* Date and time */}
@@ -89,15 +94,15 @@ export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ username = 'user
         <Text style={styles.separator}> → </Text>
         <View style={styles.statusItem}>
           <Text style={styles.statusDot}>⚪</Text>
-          <Text style={styles.statusText}>{pendingTasks} untracked</Text>
+          <Text style={styles.statusText}>{taskStats.pendingTasks} untracked</Text>
         </View>
         <View style={styles.statusItem}>
           <Text style={styles.statusDot}>🔴</Text>
-          <Text style={styles.statusText}>{inProgressTasks} modified</Text>
+          <Text style={styles.statusText}>{taskStats.inProgressTasks} modified</Text>
         </View>
         <View style={styles.statusItem}>
           <Text style={styles.statusDot}>🟢</Text>
-          <Text style={styles.statusText}>{completedToday} committed today</Text>
+          <Text style={styles.statusText}>{taskStats.completedToday} committed today</Text>
         </View>
       </View>
     </View>
@@ -195,5 +200,11 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textSecondary,
+  },
+  cursor: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.md,
+    color: Theme.colors.primary,
+    marginLeft: Theme.spacing.xs,
   },
 });

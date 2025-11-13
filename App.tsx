@@ -7,7 +7,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAppFonts } from './src/hooks/useAppFonts';
 import { useInitializeApp } from './src/hooks/useInitializeApp';
 import { AppNavigator } from './src/navigation';
-import { WelcomeScreen } from './src/screens';
+import { WelcomeScreen, SplashScreen as BootSplashScreen } from './src/screens';
 import { StorageService } from './src/services/storage';
 import { notificationService } from './src/services/notificationService';
 import { useThemeStore } from './src/stores/themeStore';
@@ -23,6 +23,7 @@ export default function App() {
   const [username, setUsername] = useState<string | null>(null);
   const [isCheckingUser, setIsCheckingUser] = useState(true);
   const [showApp, setShowApp] = useState(false);
+  const [showBootSplash, setShowBootSplash] = useState(true);
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
@@ -83,15 +84,29 @@ export default function App() {
   }, []);
 
   const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded && !isCheckingUser && showApp && isInitialized) {
+    if (fontsLoaded && !isCheckingUser && showApp && isInitialized && !showBootSplash) {
       await SplashScreen.hideAsync();
     }
-  }, [fontsLoaded, isCheckingUser, showApp, isInitialized]);
+  }, [fontsLoaded, isCheckingUser, showApp, isInitialized, showBootSplash]);
 
   const handleWelcomeComplete = async (newUsername: string) => {
     await StorageService.setUsername(newUsername);
     setUsername(newUsername);
   };
+
+  const handleBootSplashFinish = () => {
+    setShowBootSplash(false);
+  };
+
+  // Show boot splash on first load
+  if (showBootSplash && fontsLoaded && !isCheckingUser && showApp && isInitialized) {
+    return (
+      <GestureHandlerRootView style={styles.container}>
+        <BootSplashScreen onFinish={handleBootSplashFinish} />
+        <StatusBar style="light" />
+      </GestureHandlerRootView>
+    );
+  }
 
   // Show loading while initializing
   if (!fontsLoaded || isCheckingUser || !showApp || !isInitialized) {

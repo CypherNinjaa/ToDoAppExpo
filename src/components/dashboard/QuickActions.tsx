@@ -1,6 +1,6 @@
 // QuickActions - Command shortcut buttons
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Theme } from '../../constants';
 
@@ -11,6 +11,19 @@ interface QuickActionsProps {
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({ onNewTask, onViewAll, onFilter }) => {
+  // Memoize handlers
+  const handleNewTask = useCallback(() => {
+    onNewTask?.();
+  }, [onNewTask]);
+
+  const handleViewAll = useCallback(() => {
+    onViewAll?.();
+  }, [onViewAll]);
+
+  const handleFilter = useCallback(() => {
+    onFilter?.();
+  }, [onFilter]);
+
   return (
     <View style={styles.container}>
       {/* Header */}
@@ -21,7 +34,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onNewTask, onViewAll
         {/* New Task */}
         <TouchableOpacity
           style={[styles.actionButton, styles.primaryButton]}
-          onPress={onNewTask}
+          onPress={handleNewTask}
           activeOpacity={0.7}
         >
           <Text style={styles.commandText}>$ touch</Text>
@@ -29,13 +42,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ onNewTask, onViewAll
         </TouchableOpacity>
 
         {/* View All */}
-        <TouchableOpacity style={styles.actionButton} onPress={onViewAll} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleViewAll} activeOpacity={0.7}>
           <Text style={styles.commandText}>$ ls -la</Text>
           <Text style={styles.buttonLabel}>View All</Text>
         </TouchableOpacity>
 
         {/* Filter */}
-        <TouchableOpacity style={styles.actionButton} onPress={onFilter} activeOpacity={0.7}>
+        <TouchableOpacity style={styles.actionButton} onPress={handleFilter} activeOpacity={0.7}>
           <Text style={styles.commandText}>$ grep</Text>
           <Text style={styles.buttonLabel}>Filter</Text>
         </TouchableOpacity>

@@ -1,6 +1,6 @@
 // DashboardScreen - Main dashboard with terminal aesthetics
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Modal } from 'react-native';
 import { CommonStyles } from '../constants';
 import {
@@ -40,22 +40,27 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
     calculateFocusTimeStats(tasks);
   }, [tasks, calculateFocusTimeStats]);
 
-  const dailyFocusHistory = getDailyFocusHistory(tasks, 7);
+  // Memoize expensive daily focus history calculation
+  const dailyFocusHistory = useMemo(
+    () => getDailyFocusHistory(tasks, 7),
+    [tasks, getDailyFocusHistory]
+  );
 
-  const handleTaskPress = (task: Task) => {
+  // Memoize callbacks
+  const handleTaskPress = useCallback((task: Task) => {
     setEditingTask(task);
     setShowTaskForm(true);
-  };
+  }, []);
 
-  const handleCloseTaskForm = () => {
+  const handleCloseTaskForm = useCallback(() => {
     setShowTaskForm(false);
     setEditingTask(undefined);
-  };
+  }, []);
 
-  const handleNewTask = () => {
+  const handleNewTask = useCallback(() => {
     setEditingTask(undefined);
     setShowTaskForm(true);
-  };
+  }, []);
 
   return (
     <>

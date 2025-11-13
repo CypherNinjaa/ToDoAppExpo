@@ -1,10 +1,11 @@
 // TaskCard Component - Terminal-style Task Row with Git-style Indicators
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { Task, TaskPriority, TaskCategory } from '../../types';
 import { Theme } from '../../constants';
+import { hapticFeedback } from '../../utils/haptics';
 
 interface TaskCardProps {
   task: Task;
@@ -19,7 +20,7 @@ interface TaskCardProps {
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-export const TaskCard: React.FC<TaskCardProps> = ({
+const TaskCardComponent: React.FC<TaskCardProps> = ({
   task,
   username = 'user',
   onPress,
@@ -101,6 +102,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handlePress = () => {
+    hapticFeedback.light();
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.95,
@@ -119,6 +121,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleToggleComplete = () => {
     if (task.status !== 'completed') {
+      hapticFeedback.success();
       // Celebration animation with bounce and scale
       Animated.sequence([
         Animated.parallel([
@@ -147,6 +150,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   };
 
   const handleDelete = () => {
+    hapticFeedback.error();
     // Delete animation - fade out and slide right
     Animated.parallel([
       Animated.timing(deleteAnim, {
@@ -222,8 +226,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
       <Swipeable
         renderLeftActions={renderLeftActions}
         renderRightActions={renderRightActions}
-        onSwipeableLeftOpen={handleToggleComplete}
-        onSwipeableRightOpen={handleDelete}
+        onSwipeableLeftOpen={() => {
+          hapticFeedback.success();
+          handleToggleComplete();
+        }}
+        onSwipeableRightOpen={() => {
+          hapticFeedback.error();
+          handleDelete();
+        }}
         overshootLeft={false}
         overshootRight={false}
         enabled={!isActive}
@@ -282,7 +292,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
                   <TouchableOpacity
                     key={subtask.id}
                     style={styles.subtaskRow}
-                    onPress={() => onToggleSubtask?.(subtask.id)}
+                    onPress={() => {
+                      hapticFeedback.selection();
+                      onToggleSubtask?.(subtask.id);
+                    }}
                     activeOpacity={0.7}
                   >
                     <Text style={styles.subtaskCheckbox}>{subtask.completed ? '☑' : '☐'}</Text>
@@ -614,4 +627,16 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.surface,
   },
+});
+
+// Memoize TaskCard to prevent unnecessary re-renders
+export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
+  return (
+    prevProps.task.id === nextProps.task.id &&
+    prevProps.task.status === nextProps.task.status &&
+    prevProps.task.title === nextProps.task.title &&
+    prevProps.task.updatedAt === nextProps.task.updatedAt &&
+    prevProps.isActive === nextProps.isActive &&
+    prevProps.username === nextProps.username
+  );
 });

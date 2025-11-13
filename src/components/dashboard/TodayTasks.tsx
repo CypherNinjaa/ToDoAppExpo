@@ -1,6 +1,6 @@
 // TodayTasks - Display tasks due today
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -15,25 +15,30 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ onTaskPress, onAddTask }
   const tasks = useTaskStore((state) => state.tasks);
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
 
-  // Filter tasks due today
-  const todayTasks = tasks
-    .filter((t) => {
-      if (!t.dueDate) return false;
-      const today = new Date();
-      const dueDate = new Date(t.dueDate);
-      return (
-        dueDate.getDate() === today.getDate() &&
-        dueDate.getMonth() === today.getMonth() &&
-        dueDate.getFullYear() === today.getFullYear()
-      );
-    })
-    .sort((a, b) => {
-      // Sort by priority: high > medium > low
-      const priorityOrder = { high: 0, medium: 1, low: 2 };
-      return priorityOrder[a.priority] - priorityOrder[b.priority];
-    });
+  // Memoize expensive filtering and sorting
+  const todayTasks = useMemo(
+    () =>
+      tasks
+        .filter((t) => {
+          if (!t.dueDate) return false;
+          const today = new Date();
+          const dueDate = new Date(t.dueDate);
+          return (
+            dueDate.getDate() === today.getDate() &&
+            dueDate.getMonth() === today.getMonth() &&
+            dueDate.getFullYear() === today.getFullYear()
+          );
+        })
+        .sort((a, b) => {
+          // Sort by priority: high > medium > low
+          const priorityOrder = { high: 0, medium: 1, low: 2 };
+          return priorityOrder[a.priority] - priorityOrder[b.priority];
+        }),
+    [tasks]
+  );
 
-  const getPriorityColor = (priority: string) => {
+  // Memoize helper functions
+  const getPriorityColor = useCallback((priority: string) => {
     switch (priority) {
       case 'high':
         return Theme.colors.keyword;
@@ -44,9 +49,9 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ onTaskPress, onAddTask }
       default:
         return Theme.colors.textSecondary;
     }
-  };
+  }, []);
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     switch (category) {
       case 'learning':
         return '📚';
@@ -61,7 +66,7 @@ export const TodayTasks: React.FC<TodayTasksProps> = ({ onTaskPress, onAddTask }
       default:
         return '📌';
     }
-  };
+  }, []);
 
   return (
     <View style={styles.container}>

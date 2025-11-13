@@ -1,6 +1,6 @@
 // CalendarScreen - Calendar views with task visualization
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Modal, TouchableOpacity, Text } from 'react-native';
 import { CommonStyles, Theme } from '../constants';
 import { CalendarView, Heatmap, DayView, WeekView } from '../components/calendar';
@@ -20,27 +20,28 @@ export const CalendarScreen: React.FC<CalendarScreenProps> = ({ username = 'user
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
   const [taskFormDate, setTaskFormDate] = useState<Date | undefined>(undefined);
 
-  const handleDayPress = (date: string) => {
+  // Memoize callbacks
+  const handleDayPress = useCallback((date: string) => {
     setSelectedDate(date);
     setViewMode('day');
-  };
+  }, []);
 
-  const handleTaskPress = (task: Task) => {
+  const handleTaskPress = useCallback((task: Task) => {
     setEditingTask(task);
     setShowTaskForm(true);
-  };
+  }, []);
 
-  const handleAddTaskForDate = (date: string) => {
+  const handleAddTaskForDate = useCallback((date: string) => {
     setTaskFormDate(new Date(date));
     setEditingTask(undefined);
     setShowTaskForm(true);
-  };
+  }, []);
 
-  const handleCloseTaskForm = () => {
+  const handleCloseTaskForm = useCallback(() => {
     setShowTaskForm(false);
     setEditingTask(undefined);
     setTaskFormDate(undefined);
-  };
+  }, []);
 
   return (
     <>

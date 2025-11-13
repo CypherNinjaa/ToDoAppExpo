@@ -1,6 +1,6 @@
 // TimerStats - Display Pomodoro Timer Statistics
 
-import React from 'react';
+import React, { useCallback } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useThemeStore } from '../../stores/themeStore';
 import { Theme } from '../../constants';
@@ -23,14 +23,14 @@ export const TimerStats: React.FC<TimerStatsProps> = ({
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
 
-  const formatTime = (minutes: number): string => {
+  const formatTime = useCallback((minutes: number): string => {
     if (minutes < 60) {
       return `${minutes}m`;
     }
     const hours = Math.floor(minutes / 60);
     const mins = minutes % 60;
     return mins > 0 ? `${hours}h ${mins}m` : `${hours}h`;
-  };
+  }, []);
 
   if (compact) {
     return (

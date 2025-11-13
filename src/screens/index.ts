@@ -3,5 +3,6 @@ export { TasksScreen } from './TasksScreen';
 export { CalendarScreen } from './CalendarScreen';
 export { SettingsScreen } from './SettingsScreen';
 export { WelcomeScreen } from './WelcomeScreen';
+export { SplashScreen } from './SplashScreen';
 export { TaskFormScreen } from './TaskFormScreen';
 export { ExportImportScreen } from './ExportImportScreen';

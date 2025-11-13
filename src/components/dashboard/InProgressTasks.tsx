@@ -1,6 +1,6 @@
 // InProgressTasks - Display tasks currently in progress
 
-import React from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -14,10 +14,10 @@ export const InProgressTasks: React.FC<InProgressTasksProps> = ({ onTaskPress })
   const tasks = useTaskStore((state) => state.tasks);
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
 
-  // Filter in-progress tasks
-  const inProgressTasks = tasks.filter((t) => t.status === 'in-progress');
+  // Memoize filtering
+  const inProgressTasks = useMemo(() => tasks.filter((t) => t.status === 'in-progress'), [tasks]);
 
-  const getCategoryIcon = (category: string) => {
+  const getCategoryIcon = useCallback((category: string) => {
     switch (category) {
       case 'learning':
         return '📚';
@@ -32,7 +32,7 @@ export const InProgressTasks: React.FC<InProgressTasksProps> = ({ onTaskPress })
       default:
         return '📌';
     }
-  };
+  }, []);
 
   if (inProgressTasks.length === 0) {
     return null;

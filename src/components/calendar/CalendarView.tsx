@@ -1,6 +1,6 @@
 // CalendarView - Custom calendar with task markers
 
-import React, { useState } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Calendar } from 'react-native-calendars';
 import { Theme } from '../../constants';
@@ -14,8 +14,8 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onDayPress }) => {
   const tasks = useTaskStore((state) => state.tasks);
   const [selectedDate, setSelectedDate] = useState('');
 
-  // Get marked dates with task indicators
-  const getMarkedDates = () => {
+  // Memoize marked dates calculation
+  const getMarkedDates = useMemo(() => {
     const marked: { [key: string]: any } = {};
 
     // Mark dates with tasks
@@ -50,12 +50,15 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onDayPress }) => {
     }
 
     return marked;
-  };
+  }, [tasks, selectedDate]);
 
-  const handleDayPress = (day: any) => {
-    setSelectedDate(day.dateString);
-    onDayPress?.(day.dateString);
-  };
+  const handleDayPress = useCallback(
+    (day: any) => {
+      setSelectedDate(day.dateString);
+      onDayPress?.(day.dateString);
+    },
+    [onDayPress]
+  );
 
   return (
     <View style={styles.container}>
@@ -69,7 +72,7 @@ export const CalendarView: React.FC<CalendarViewProps> = ({ onDayPress }) => {
       <Calendar
         onDayPress={handleDayPress}
         markingType="multi-dot"
-        markedDates={getMarkedDates()}
+        markedDates={getMarkedDates}
         theme={{
           calendarBackground: Theme.colors.surface,
           textSectionTitleColor: Theme.colors.keyword,
