@@ -1,6 +1,6 @@
-// Heatmap - GitHub-style contribution heatmap for task completion
+// Heatmap - GitHub-style contribution heatmap with Snake animation
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
@@ -9,8 +9,21 @@ interface HeatmapProps {
   onDayPress?: (date: string, count: number) => void;
 }
 
+interface SnakeSegment {
+  weekIndex: number;
+  dayIndex: number;
+}
+
+interface EatenCell {
+  weekIndex: number;
+  dayIndex: number;
+  timestamp: number;
+}
+
 export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
   const tasks = useTaskStore((state) => state.tasks);
+  const [snakePositions, setSnakePositions] = useState<SnakeSegment[]>([]);
+  const [direction, setDirection] = useState<'up' | 'down' | 'left' | 'right'>('right');
 
   // Calculate task completion per day for last 12 weeks
   const generateHeatmapData = () => {
@@ -70,12 +83,93 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
     'Dec',
   ];
 
+  // Snake animation logic - random movement
+  useEffect(() => {
+    // Initialize snake at random position
+    if (snakePositions.length === 0) {
+      const randomWeek = Math.floor(Math.random() * 12);
+      const randomDay = Math.floor(Math.random() * 7);
+      setSnakePositions([{ weekIndex: randomWeek, dayIndex: randomDay }]);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setSnakePositions((prevPositions) => {
+        const head = prevPositions[0];
+
+        // Try to move in current direction, or pick random direction
+        const possibleMoves: Array<{
+          weekIndex: number;
+          dayIndex: number;
+          dir: 'up' | 'down' | 'left' | 'right';
+        }> = [];
+
+        // Check all 4 directions
+        if (head.weekIndex > 0)
+          possibleMoves.push({
+            weekIndex: head.weekIndex - 1,
+            dayIndex: head.dayIndex,
+            dir: 'left',
+          });
+        if (head.weekIndex < 11)
+          possibleMoves.push({
+            weekIndex: head.weekIndex + 1,
+            dayIndex: head.dayIndex,
+            dir: 'right',
+          });
+        if (head.dayIndex > 0)
+          possibleMoves.push({ weekIndex: head.weekIndex, dayIndex: head.dayIndex - 1, dir: 'up' });
+        if (head.dayIndex < 6)
+          possibleMoves.push({
+            weekIndex: head.weekIndex,
+            dayIndex: head.dayIndex + 1,
+            dir: 'down',
+          });
+
+        // Filter out positions already in snake body
+        const validMoves = possibleMoves.filter(
+          (move) =>
+            !prevPositions.some(
+              (pos) => pos.weekIndex === move.weekIndex && pos.dayIndex === move.dayIndex
+            )
+        );
+
+        // If no valid moves, reset snake
+        if (validMoves.length === 0) {
+          const randomWeek = Math.floor(Math.random() * 12);
+          const randomDay = Math.floor(Math.random() * 7);
+          setSnakePositions([{ weekIndex: randomWeek, dayIndex: randomDay }]);
+          return [{ weekIndex: randomWeek, dayIndex: randomDay }];
+        }
+
+        // Pick random valid move
+        const nextMove = validMoves[Math.floor(Math.random() * validMoves.length)];
+        setDirection(nextMove.dir);
+
+        const newHead = { weekIndex: nextMove.weekIndex, dayIndex: nextMove.dayIndex };
+
+        // Add new head and keep snake length
+        const newSnake = [newHead, ...prevPositions];
+        return newSnake.slice(0, 6); // Snake length of 6
+      });
+    }, 120);
+
+    return () => clearInterval(interval);
+  }, [snakePositions]);
+
+  // Get snake segment index for size calculation
+  const getSnakeSegmentIndex = (weekIndex: number, dayIndex: number): number => {
+    return snakePositions.findIndex(
+      (pos) => pos.weekIndex === weekIndex && pos.dayIndex === dayIndex
+    );
+  };
+
   return (
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.title}>$ git log --oneline --graph</Text>
-        <Text style={styles.subtitle}>// Contribution Heatmap (Last 12 Weeks)</Text>
+        <Text style={styles.subtitle}>// Snake eating commits 🐍 (Last 12 Weeks)</Text>
       </View>
 
       {/* Heatmap */}
@@ -92,14 +186,70 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
           <View style={styles.weeksContainer}>
             {heatmapData.map((week, weekIndex) => (
               <View key={weekIndex} style={styles.week}>
-                {week.map((day, dayIndex) => (
-                  <TouchableOpacity
-                    key={dayIndex}
-                    style={[styles.day, { backgroundColor: getHeatColor(day.count) }]}
-                    onPress={() => onDayPress?.(day.dateStr, day.count)}
-                    activeOpacity={0.7}
-                  />
-                ))}
+                {week.map((day, dayIndex) => {
+                  const segmentIndex = getSnakeSegmentIndex(weekIndex, dayIndex);
+                  const isSnake = segmentIndex !== -1;
+
+                  let backgroundColor = getHeatColor(day.count);
+                  let borderColor = Theme.colors.border;
+                  let borderWidth = 1;
+                  let size = 18; // default size
+                  let borderRadius = 3;
+
+                  if (isSnake) {
+                    // Calculate size based on position in snake (head = largest)
+                    const sizeRatio = 1 - (segmentIndex / snakePositions.length) * 0.6;
+                    size = 18 * sizeRatio; // Head: 18px, gradually smaller to tail: ~7px
+                    borderRadius = size / 6;
+
+                    // Color gradient from head to tail
+                    if (segmentIndex === 0) {
+                      // Head - bright green
+                      backgroundColor = '#00FF00';
+                      borderColor = '#00DD00';
+                      borderWidth = 2;
+                    } else {
+                      // Body - gradient to darker
+                      const alpha = Math.floor(
+                        (1 - segmentIndex / snakePositions.length) * 200 + 55
+                      );
+                      backgroundColor = `rgba(0, 255, 0, ${alpha / 255})`;
+                      borderColor = '#00AA00';
+                      borderWidth = 1.5;
+                    }
+                  }
+
+                  return (
+                    <View
+                      key={dayIndex}
+                      style={[
+                        styles.cellContainer,
+                        {
+                          width: 18,
+                          height: 18,
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                        },
+                      ]}
+                    >
+                      <TouchableOpacity
+                        style={[
+                          styles.day,
+                          {
+                            width: size,
+                            height: size,
+                            backgroundColor,
+                            borderColor,
+                            borderWidth,
+                            borderRadius,
+                          },
+                        ]}
+                        onPress={() => onDayPress?.(day.dateStr, day.count)}
+                        activeOpacity={0.7}
+                      />
+                    </View>
+                  );
+                })}
               </View>
             ))}
           </View>
@@ -158,22 +308,23 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: 8,
+    fontSize: 10,
     color: Theme.colors.textSecondary,
-    height: 12,
-    lineHeight: 12,
+    height: 18,
+    lineHeight: 18,
   },
   weeksContainer: {
     flexDirection: 'row',
-    gap: 3,
+    gap: 4,
   },
   week: {
-    gap: 3,
+    gap: 4,
+  },
+  cellContainer: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   day: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
@@ -182,7 +333,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: Theme.spacing.sm,
-    gap: 4,
+    gap: 5,
   },
   legendLabel: {
     fontFamily: Theme.typography.fontFamily.mono,
@@ -190,9 +341,9 @@ const styles = StyleSheet.create({
     color: Theme.colors.textSecondary,
   },
   legendBox: {
-    width: 12,
-    height: 12,
-    borderRadius: 2,
+    width: 18,
+    height: 18,
+    borderRadius: 3,
     borderWidth: 1,
     borderColor: Theme.colors.border,
   },
