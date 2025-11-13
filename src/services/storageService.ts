@@ -259,7 +259,7 @@ export class StorageService {
   /**
    * Save tasks array to storage
    */
-  private static async saveTasks(tasks: Task[]): Promise<void> {
+  static async saveTasks(tasks: Task[]): Promise<void> {
     try {
       const tasksJson = JSON.stringify(tasks);
       await AsyncStorage.setItem(StorageKeys.TASKS, tasksJson);

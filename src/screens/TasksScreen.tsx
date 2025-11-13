@@ -3,12 +3,15 @@ import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
   RefreshControl,
   ActivityIndicator,
   Modal,
 } from 'react-native';
+import DraggableFlatList, {
+  ScaleDecorator,
+  RenderItemParams,
+} from 'react-native-draggable-flatlist';
 import { Theme, CommonStyles } from '../constants';
 import { useTaskStore } from '../stores';
 import { TaskCard } from '../components/tasks';
@@ -39,6 +42,7 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
   const loadTasks = useTaskStore((state) => state.loadTasks);
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
   const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
+  const reorderTasks = useTaskStore((state) => state.reorderTasks);
   const deleteTask = useTaskStore((state) => state.deleteTask);
 
   const [refreshing, setRefreshing] = useState(false);
@@ -393,19 +397,24 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
         </View>
 
         {/* Task list */}
-        <FlatList
+        <DraggableFlatList
           data={filteredAndSortedTasks}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TaskCard
-              task={item}
-              username={username}
-              onPress={() => handleEditTask(item.id)}
-              onToggleComplete={() => handleToggleComplete(item.id)}
-              onToggleSubtask={(subtaskId) => toggleSubtask(item.id, subtaskId)}
-              onDelete={() => handleDeleteTask(item.id)}
-            />
+          renderItem={({ item, drag, isActive }: RenderItemParams<Task>) => (
+            <ScaleDecorator>
+              <TaskCard
+                task={item}
+                username={username}
+                onPress={() => handleEditTask(item.id)}
+                onToggleComplete={() => handleToggleComplete(item.id)}
+                onToggleSubtask={(subtaskId) => toggleSubtask(item.id, subtaskId)}
+                onDelete={() => handleDeleteTask(item.id)}
+                onLongPress={drag}
+                isActive={isActive}
+              />
+            </ScaleDecorator>
           )}
+          onDragEnd={({ data }) => reorderTasks(data)}
           contentContainerStyle={styles.listContent}
           ListEmptyComponent={renderEmptyState}
           refreshControl={

@@ -13,6 +13,8 @@ interface TaskCardProps {
   onToggleComplete?: () => void;
   onToggleSubtask?: (subtaskId: string) => void;
   onDelete?: () => void;
+  onLongPress?: () => void;
+  isActive?: boolean;
 }
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
@@ -24,6 +26,8 @@ export const TaskCard: React.FC<TaskCardProps> = ({
   onToggleComplete,
   onToggleSubtask,
   onDelete,
+  onLongPress,
+  isActive = false,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const completionAnim = useRef(new Animated.Value(0)).current;
@@ -222,8 +226,14 @@ export const TaskCard: React.FC<TaskCardProps> = ({
         onSwipeableRightOpen={handleDelete}
         overshootLeft={false}
         overshootRight={false}
+        enabled={!isActive}
       >
-        <TouchableOpacity style={styles.taskRow} onPress={handlePress} activeOpacity={0.7}>
+        <TouchableOpacity
+          style={[styles.taskRow, isActive && styles.taskRowActive]}
+          onPress={handlePress}
+          onLongPress={onLongPress}
+          activeOpacity={0.7}
+        >
           {/* Git-style status indicator */}
           <TouchableOpacity
             style={styles.statusButton}
@@ -384,6 +394,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: Theme.spacing.md,
     alignItems: 'flex-start',
+  },
+  taskRowActive: {
+    backgroundColor: Theme.colors.surfaceLight,
+    opacity: 0.8,
   },
   statusButton: {
     marginRight: Theme.spacing.md,

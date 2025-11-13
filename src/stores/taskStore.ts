@@ -18,6 +18,7 @@ interface TaskStore {
   deleteTask: (id: string) => Promise<void>;
   toggleTaskComplete: (id: string) => Promise<void>;
   toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
+  reorderTasks: (tasks: Task[]) => Promise<void>;
 
   // Selectors (computed values)
   getTaskById: (id: string) => Task | undefined;
@@ -179,6 +180,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
       await get().updateTask(taskId, { subtasks: updatedSubtasks });
     } catch (error) {
       console.error('Failed to toggle subtask:', error);
+      throw error;
+    }
+  },
+
+  // Reorder tasks
+  reorderTasks: async (reorderedTasks: Task[]) => {
+    try {
+      set({ tasks: reorderedTasks });
+      await StorageService.saveTasks(reorderedTasks);
+    } catch (error) {
+      console.error('Failed to reorder tasks:', error);
       throw error;
     }
   },
