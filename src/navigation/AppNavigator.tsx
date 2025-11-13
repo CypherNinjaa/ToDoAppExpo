@@ -21,12 +21,11 @@ export const AppNavigator = () => {
             paddingBottom: Platform.OS === 'ios' ? 24 : 8,
             paddingTop: 8,
           },
-          tabBarActiveTintColor: Theme.colors.keyword,
-          tabBarInactiveTintColor: Theme.colors.textSecondary,
           tabBarLabelStyle: {
             fontFamily: Theme.typography.fontFamily.mono,
             fontSize: Theme.typography.fontSize.xs,
             fontWeight: Theme.typography.fontWeight.semibold,
+            color: Theme.colors.textPrimary,
           },
           tabBarItemStyle: {
             paddingVertical: 4,
