@@ -24,6 +24,7 @@ export const AppNavigator = () => {
           tabBarLabelStyle: {
             fontFamily: Theme.typography.fontFamily.mono,
             fontSize: Theme.typography.fontSize.xs,
+            fontWeight: Theme.typography.fontWeight.semibold,
             color: Theme.colors.textPrimary,
           },
           tabBarItemStyle: {
