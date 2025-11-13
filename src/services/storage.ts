@@ -3,3 +3,4 @@
 
 export { StorageService, StorageError } from './storageService';
 export { StorageKeys, CURRENT_VERSION } from './storageKeys';
+export { notificationService } from './notificationService';

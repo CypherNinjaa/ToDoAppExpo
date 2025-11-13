@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Theme, CommonStyles } from '../constants';
 import { StorageService } from '../services/storage';
+import { ThemeSelector } from '../components/inputs';
+import { useThemeStore } from '../stores/themeStore';
+import {
+  testNotificationDelivery,
+  testNotificationChannels,
+  cancelAllTestNotifications,
+} from '../utils/notificationTest';
 
 interface SettingsScreenProps {
   username: string;
@@ -10,6 +17,8 @@ interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
   const [displayedText, setDisplayedText] = useState('');
   const fullText = '~$ ./configure.sh';
+  const { getThemeColors } = useThemeStore();
+  const colors = getThemeColors();
 
   useEffect(() => {
     let index = 0;
@@ -52,77 +61,189 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
     );
   };
 
+  const handleTestNotification = async () => {
+    Alert.alert('Testing Notifications', 'Check your notification tray in 1-2 seconds');
+    await testNotificationDelivery();
+  };
+
+  const handleTestAllChannels = async () => {
+    Alert.alert('Testing All Channels', 'You will receive 4 notifications over the next 8 seconds');
+    await testNotificationChannels();
+  };
+
+  const handleCancelNotifications = async () => {
+    await cancelAllTestNotifications();
+    Alert.alert('Done', 'All scheduled notifications cancelled');
+  };
+
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <View
+        style={[
+          styles.header,
+          { backgroundColor: colors.surface, borderBottomColor: colors.border },
+        ]}
+      >
+        <Text style={[styles.title, { color: colors.keyword }]}>
           {displayedText}
-          <Text style={styles.cursor}>▊</Text>
+          <Text style={[styles.cursor, { color: colors.primary }]}>▊</Text>
         </Text>
       </View>
-      <View style={styles.content}>
-        <Text style={styles.subtitle}>Settings Screen</Text>
-        <Text style={styles.mono}>// TODO: Implement settings features</Text>
+      <ScrollView style={styles.scrollContent}>
+        <View style={styles.content}>
+          {/* Theme Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
+              // Theme Configuration
+            </Text>
+            <ThemeSelector />
+          </View>
 
-        <TouchableOpacity style={styles.dangerButton} onPress={handleClearStorage}>
-          <Text style={styles.dangerButtonText}>$ rm -rf ~/.devtodo</Text>
-          <Text style={styles.dangerButtonSubtext}>// Clear storage & reset app</Text>
-        </TouchableOpacity>
-      </View>
+          {/* Notification Testing Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
+              // Notification Testing
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                {
+                  backgroundColor: colors.primary + '20',
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={handleTestNotification}
+            >
+              <Text style={[styles.testButtonText, { color: colors.primary }]}>
+                $ test-notification --basic
+              </Text>
+              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
+                // Send 2 test notifications
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                {
+                  backgroundColor: colors.primary + '20',
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={handleTestAllChannels}
+            >
+              <Text style={[styles.testButtonText, { color: colors.primary }]}>
+                $ test-notification --all-channels
+              </Text>
+              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
+                // Test all 4 notification channels
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.testButton,
+                {
+                  backgroundColor: colors.primary + '20',
+                  borderColor: colors.primary,
+                },
+              ]}
+              onPress={handleCancelNotifications}
+            >
+              <Text style={[styles.testButtonText, { color: colors.primary }]}>
+                $ cancel-notifications --all
+              </Text>
+              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
+                // Clear scheduled notifications
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Storage Management Section */}
+          <TouchableOpacity
+            style={[
+              styles.dangerButton,
+              {
+                backgroundColor: colors.error + '20',
+                borderColor: colors.error,
+              },
+            ]}
+            onPress={handleClearStorage}
+          >
+            <Text style={[styles.dangerButtonText, { color: colors.error }]}>
+              $ rm -rf ~/.devtodo
+            </Text>
+            <Text style={[styles.dangerButtonSubtext, { color: colors.comment }]}>
+              // Clear storage & reset app
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
-    ...CommonStyles.container,
+    flex: 1,
   },
   header: {
     paddingTop: 60,
     paddingHorizontal: Theme.layout.screenPadding,
     paddingBottom: Theme.spacing.lg,
-    backgroundColor: Theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
+  },
+  scrollContent: {
+    flex: 1,
   },
   content: {
-    flex: 1,
     padding: Theme.layout.screenPadding,
   },
   title: {
-    ...CommonStyles.h2,
+    fontSize: Theme.typography.fontSize.xxl,
     fontFamily: Theme.typography.fontFamily.mono,
-    color: Theme.colors.keyword,
   },
   cursor: {
-    color: Theme.colors.primary,
+    opacity: 0.7,
+  },
+  section: {
+    marginBottom: Theme.spacing.xl,
+  },
+  sectionTitle: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.md,
+    marginBottom: Theme.spacing.md,
+  },
+  testButton: {
+    borderWidth: 2,
+    borderRadius: Theme.borderRadius.md,
+    padding: Theme.spacing.md,
+    marginBottom: Theme.spacing.md,
+  },
+  testButtonText: {
+    fontFamily: Theme.typography.fontFamily.monoSemiBold,
+    fontSize: Theme.typography.fontSize.md,
+    marginBottom: Theme.spacing.xs,
+  },
+  testButtonSubtext: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
   },
   dangerButton: {
-    backgroundColor: Theme.colors.error + '20',
     borderWidth: 2,
-    borderColor: Theme.colors.error,
     borderRadius: Theme.borderRadius.md,
     padding: Theme.spacing.md,
     marginTop: Theme.spacing.xxl,
+    marginBottom: Theme.spacing.xxl,
   },
   dangerButtonText: {
     fontFamily: Theme.typography.fontFamily.monoSemiBold,
     fontSize: Theme.typography.fontSize.md,
-    color: Theme.colors.error,
     marginBottom: Theme.spacing.xs,
   },
   dangerButtonSubtext: {
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.comment,
-  },
-  subtitle: {
-    ...CommonStyles.textPrimary,
-    marginBottom: Theme.spacing.lg,
-  },
-  mono: {
-    fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.comment,
   },
 });

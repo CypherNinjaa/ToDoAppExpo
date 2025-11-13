@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { Task, TaskStatus, TaskCategory } from '../types';
 import { StorageService } from '../services/storageService';
+import { notificationService } from '../services/notificationService';
 
 interface TaskStore {
   // State
@@ -55,6 +56,17 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
     set({ isLoading: true, error: null });
     try {
       const newTask = await StorageService.addTask(taskData);
+
+      // Schedule notification if reminder is enabled
+      if (newTask.reminderEnabled && newTask.reminder) {
+        const notificationId = await notificationService.scheduleTaskReminder(newTask);
+        if (notificationId) {
+          // Update task with notification ID
+          await StorageService.updateTask(newTask.id, { notificationId });
+          newTask.notificationId = notificationId;
+        }
+      }
+
       set((state) => ({
         tasks: [...state.tasks, newTask],
         isLoading: false,
@@ -72,7 +84,26 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   updateTask: async (id, updates) => {
     set({ isLoading: true, error: null });
     try {
+      const oldTask = get().tasks.find((t) => t.id === id);
       const updatedTask = await StorageService.updateTask(id, updates);
+
+      // Handle reminder notification updates
+      if (oldTask) {
+        // Cancel old notification if it exists
+        if (oldTask.notificationId && oldTask.reminderEnabled) {
+          await notificationService.cancelTaskReminder(oldTask.notificationId);
+        }
+
+        // Schedule new notification if reminder is enabled
+        if (updatedTask.reminderEnabled && updatedTask.reminder) {
+          const notificationId = await notificationService.scheduleTaskReminder(updatedTask);
+          if (notificationId) {
+            await StorageService.updateTask(id, { notificationId });
+            updatedTask.notificationId = notificationId;
+          }
+        }
+      }
+
       set((state) => ({
         tasks: state.tasks.map((task) => (task.id === id ? updatedTask : task)),
         isLoading: false,
@@ -90,6 +121,13 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
   deleteTask: async (id) => {
     set({ isLoading: true, error: null });
     try {
+      const task = get().tasks.find((t) => t.id === id);
+
+      // Cancel notification if exists
+      if (task?.notificationId && task.reminderEnabled) {
+        await notificationService.cancelTaskReminder(task.notificationId);
+      }
+
       await StorageService.deleteTask(id);
       set((state) => ({
         tasks: state.tasks.filter((task) => task.id !== id),

@@ -6,6 +6,7 @@ export const StorageKeys = {
   TASKS: '@devtodo:tasks',
   SETTINGS: '@devtodo:settings',
   USERNAME: '@devtodo:username',
+  THEME: '@devtodo:theme',
 
   // Metadata
   LAST_SYNC: '@devtodo:last_sync',
@@ -15,5 +16,8 @@ export const StorageKeys = {
   STREAK: '@devtodo:streak',
   TOTAL_COMPLETED: '@devtodo:total_completed',
 } as const;
+
+// Export as STORAGE_KEYS for consistency
+export const STORAGE_KEYS = StorageKeys;
 
 export const CURRENT_VERSION = 1;

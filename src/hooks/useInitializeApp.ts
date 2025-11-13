@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useTaskStore, useSettingsStore, useStatsStore } from '../stores';
 import { StorageService } from '../services/storageService';
+import { notificationService } from '../services/notificationService';
 
 export const useInitializeApp = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -17,6 +18,9 @@ export const useInitializeApp = () => {
       try {
         // Initialize storage service (version check & migration)
         await StorageService.initialize();
+
+        // Initialize notification service (channels & permissions check)
+        await notificationService.initialize();
 
         // Load all stores in parallel
         await Promise.all([loadTasks(), loadSettings(), loadStats()]);

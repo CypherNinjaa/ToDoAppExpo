@@ -24,6 +24,7 @@ import {
   CodeSnippetInput,
   TimeInput,
   DependencySelector,
+  ReminderSelector,
 } from '../components/inputs';
 import { SubtaskItem } from '../components/tasks';
 
@@ -44,6 +45,8 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [category, setCategory] = useState<TaskCategory>('coding');
   const [dueDate, setDueDate] = useState<Date | undefined>(initialDate);
+  const [reminderDate, setReminderDate] = useState<Date | undefined>();
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   const [tags, setTags] = useState<string[]>([]);
   const [subtasks, setSubtasks] = useState<SubTask[]>([]);
   const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
@@ -65,6 +68,8 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
         setPriority(task.priority);
         setCategory(task.category);
         setDueDate(task.dueDate);
+        setReminderDate(task.reminder);
+        setReminderEnabled(task.reminderEnabled || false);
         setTags(task.tags || []);
         setSubtasks(task.subtasks || []);
         setCodeSnippet(task.codeSnippet);
@@ -105,6 +110,8 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
         category,
         status: 'pending' as const,
         dueDate,
+        reminder: reminderEnabled ? reminderDate : undefined,
+        reminderEnabled,
         tags,
         subtasks,
         codeSnippet,
@@ -195,6 +202,17 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
 
         {/* Due Date */}
         <DatePicker label="// Set deadline (optional)" value={dueDate} onChange={setDueDate} />
+
+        {/* Reminder */}
+        <ReminderSelector
+          dueDate={dueDate}
+          reminderDate={reminderDate}
+          reminderEnabled={reminderEnabled}
+          onReminderChange={(date, enabled) => {
+            setReminderDate(date);
+            setReminderEnabled(enabled);
+          }}
+        />
 
         {/* Tags */}
         <TagInput

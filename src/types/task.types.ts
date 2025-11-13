@@ -25,6 +25,8 @@ export interface Task {
   tags: string[];
   dueDate?: Date;
   reminder?: Date;
+  reminderEnabled?: boolean; // whether reminder notifications are enabled
+  notificationId?: string; // ID of scheduled notification for cancellation
   createdAt: Date;
   completedAt?: Date;
   estimatedTime?: number; // in minutes
@@ -44,6 +46,12 @@ export interface UserSettings {
   defaultPriority: TaskPriority;
   autoArchive: boolean;
   weekStartsOn: 'monday' | 'sunday';
+  // Notification preferences
+  dailySummaryEnabled?: boolean;
+  dailySummaryTime?: string; // "HH:MM" format
+  streakNotificationsEnabled?: boolean;
+  overdueAlertsEnabled?: boolean;
+  upcomingDeadlineHours?: number; // hours before deadline to notify
 }
 
 export interface AppData {
