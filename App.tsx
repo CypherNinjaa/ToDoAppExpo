@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useAppFonts } from './src/hooks/useAppFonts';
 import { useInitializeApp } from './src/hooks/useInitializeApp';
 import { AppNavigator } from './src/navigation';
@@ -22,8 +23,8 @@ export default function App() {
   const [username, setUsername] = useState<string | null>(null);
   const [isCheckingUser, setIsCheckingUser] = useState(true);
   const [showApp, setShowApp] = useState(false);
-  const notificationListener = useRef<Notifications.Subscription>();
-  const responseListener = useRef<Notifications.Subscription>();
+  const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
+  const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   useEffect(() => {
     const checkUsername = async () => {
@@ -49,15 +50,13 @@ export default function App() {
   // Set up notification listeners
   useEffect(() => {
     // This listener is fired whenever a notification is received while the app is foregrounded
-    notificationListener.current = notificationService.addNotificationReceivedListener(
-      (notification) => {
-        console.log('📬 Notification received:', notification);
-        // You can add custom handling here (e.g., update UI, show in-app notification)
-      }
-    );
+    notificationListener.current = Notifications.addNotificationReceivedListener((notification) => {
+      console.log('📬 Notification received:', notification);
+      // You can add custom handling here (e.g., update UI, show in-app notification)
+    });
 
     // This listener is fired whenever a user taps on or interacts with a notification
-    responseListener.current = notificationService.addNotificationResponseListener((response) => {
+    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
       console.log('👆 Notification tapped:', response);
       const data = response.notification.request.content.data;
 
@@ -75,10 +74,10 @@ export default function App() {
     // Clean up listeners on unmount
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, []);
@@ -114,14 +113,16 @@ export default function App() {
   }
 
   return (
-    <View style={styles.container} onLayout={onLayoutRootView}>
-      {username ? (
-        <AppNavigator username={username} />
-      ) : (
-        <WelcomeScreen onComplete={handleWelcomeComplete} showSplash={true} />
-      )}
-      <StatusBar style="light" />
-    </View>
+    <GestureHandlerRootView style={styles.container}>
+      <View style={styles.container} onLayout={onLayoutRootView}>
+        {username ? (
+          <AppNavigator username={username} />
+        ) : (
+          <WelcomeScreen onComplete={handleWelcomeComplete} showSplash={true} />
+        )}
+        <StatusBar style="light" />
+      </View>
+    </GestureHandlerRootView>
   );
 }
 

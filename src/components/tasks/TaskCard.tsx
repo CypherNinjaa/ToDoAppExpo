@@ -1,7 +1,8 @@
 // TaskCard Component - Terminal-style Task Row with Git-style Indicators
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Task, TaskPriority, TaskCategory } from '../../types';
 import { Theme } from '../../constants';
 
@@ -22,6 +23,26 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const completionAnim = useRef(new Animated.Value(0)).current;
+  const mountAnim = useRef(new Animated.Value(0)).current;
+  const deleteAnim = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
+
+  // Mount animation - fade in and slide up when task is created
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(mountAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []);
 
   // Priority colors (syntax highlighting style)
   const getPriorityColor = (priority: TaskPriority): string => {
@@ -90,108 +111,193 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
   const handleToggleComplete = () => {
     if (task.status !== 'completed') {
-      Animated.timing(completionAnim, {
-        toValue: 1,
-        duration: 400,
-        useNativeDriver: true,
-      }).start();
+      // Celebration animation with bounce and scale
+      Animated.sequence([
+        Animated.parallel([
+          Animated.spring(scaleAnim, {
+            toValue: 1.1,
+            tension: 100,
+            friction: 3,
+            useNativeDriver: true,
+          }),
+          Animated.timing(completionAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 5,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }
 
     onToggleComplete?.();
+  };
+
+  const handleDelete = () => {
+    // Delete animation - fade out and slide right
+    Animated.parallel([
+      Animated.timing(deleteAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 50,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      onDelete?.();
+    });
   };
 
   const statusInfo = getStatusIndicator();
   const priorityColor = getPriorityColor(task.priority);
   const categoryIcon = getCategoryIcon(task.category);
 
+  // Swipe actions
+  const renderLeftActions = (progress: Animated.AnimatedInterpolation<number>) => {
+    const trans = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [-80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={[styles.swipeAction, styles.completeAction, { transform: [{ translateX: trans }] }]}
+      >
+        <Text style={styles.swipeActionText}>✓</Text>
+        <Text style={styles.swipeActionLabel}>Complete</Text>
+      </Animated.View>
+    );
+  };
+
+  const renderRightActions = (progress: Animated.AnimatedInterpolation<number>) => {
+    const trans = progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [80, 0],
+    });
+
+    return (
+      <Animated.View
+        style={[styles.swipeAction, styles.deleteAction, { transform: [{ translateX: trans }] }]}
+      >
+        <Text style={styles.swipeActionText}>🗑️</Text>
+        <Text style={styles.swipeActionLabel}>Delete</Text>
+      </Animated.View>
+    );
+  };
+
   return (
     <Animated.View
       style={[
         styles.container,
         {
-          transform: [{ scale: scaleAnim }],
-          opacity: task.status === 'completed' ? 0.6 : 1,
+          transform: [
+            { scale: scaleAnim },
+            {
+              translateY: slideAnim.interpolate({
+                inputRange: [0, 1],
+                outputRange: [20, 0],
+              }),
+            },
+          ],
+          opacity: Animated.multiply(mountAnim, deleteAnim),
         },
       ]}
     >
-      <TouchableOpacity style={styles.taskRow} onPress={handlePress} activeOpacity={0.7}>
-        {/* Git-style status indicator */}
-        <TouchableOpacity
-          style={styles.statusButton}
-          onPress={handleToggleComplete}
-          activeOpacity={0.6}
-        >
-          <Text style={styles.statusSymbol}>{statusInfo.symbol}</Text>
-        </TouchableOpacity>
-
-        {/* Task content */}
-        <View style={styles.content}>
-          {/* Terminal-style header */}
-          <View style={styles.header}>
-            <Text style={[styles.permissions, { color: priorityColor }]}>-rw-r--r--</Text>
-            <Text style={styles.user}>1 user</Text>
-            <Text style={[styles.priority, { color: priorityColor }]}>
-              {task.priority.toUpperCase()}
-            </Text>
-            <Text style={styles.categoryIcon}>{categoryIcon}</Text>
-          </View>
-
-          {/* Task title */}
-          <Text
-            style={[styles.title, task.status === 'completed' && styles.titleCompleted]}
-            numberOfLines={2}
+      <Swipeable
+        renderLeftActions={renderLeftActions}
+        renderRightActions={renderRightActions}
+        onSwipeableLeftOpen={handleToggleComplete}
+        onSwipeableRightOpen={handleDelete}
+        overshootLeft={false}
+        overshootRight={false}
+      >
+        <TouchableOpacity style={styles.taskRow} onPress={handlePress} activeOpacity={0.7}>
+          {/* Git-style status indicator */}
+          <TouchableOpacity
+            style={styles.statusButton}
+            onPress={handleToggleComplete}
+            activeOpacity={0.6}
           >
-            "{task.title}"
-          </Text>
+            <Text style={styles.statusSymbol}>{statusInfo.symbol}</Text>
+          </TouchableOpacity>
 
-          {/* Task metadata */}
-          <View style={styles.metadata}>
-            <Text style={[styles.statusText, { color: statusInfo.color }]}>
-              [{statusInfo.text}]
+          {/* Task content */}
+          <View style={styles.content}>
+            {/* Terminal-style header */}
+            <View style={styles.header}>
+              <Text style={[styles.permissions, { color: priorityColor }]}>-rw-r--r--</Text>
+              <Text style={styles.user}>1 user</Text>
+              <Text style={[styles.priority, { color: priorityColor }]}>
+                {task.priority.toUpperCase()}
+              </Text>
+              <Text style={styles.categoryIcon}>{categoryIcon}</Text>
+            </View>
+
+            {/* Task title */}
+            <Text
+              style={[styles.title, task.status === 'completed' && styles.titleCompleted]}
+              numberOfLines={2}
+            >
+              "{task.title}"
             </Text>
 
-            {task.subtasks && task.subtasks.length > 0 && (
-              <Text style={styles.subtaskProgress}>
-                ✓ {task.subtasks.filter((st) => st.completed).length}/{task.subtasks.length}
+            {/* Task metadata */}
+            <View style={styles.metadata}>
+              <Text style={[styles.statusText, { color: statusInfo.color }]}>
+                [{statusInfo.text}]
               </Text>
-            )}
 
-            {task.tags && task.tags.length > 0 && (
-              <Text style={styles.tags} numberOfLines={1}>
-                {task.tags.map((tag) => `#${tag}`).join(' ')}
-              </Text>
-            )}
+              {task.subtasks && task.subtasks.length > 0 && (
+                <Text style={styles.subtaskProgress}>
+                  ✓ {task.subtasks.filter((st) => st.completed).length}/{task.subtasks.length}
+                </Text>
+              )}
 
-            {task.codeSnippet && (
-              <Text style={styles.codeIndicator}>
-                {'<>'} {task.codeSnippet.language}
-              </Text>
-            )}
+              {task.tags && task.tags.length > 0 && (
+                <Text style={styles.tags} numberOfLines={1}>
+                  {task.tags.map((tag) => `#${tag}`).join(' ')}
+                </Text>
+              )}
 
-            {task.estimatedTime && (
-              <Text style={styles.timeIndicator}>⏱ {task.estimatedTime}m</Text>
-            )}
+              {task.codeSnippet && (
+                <Text style={styles.codeIndicator}>
+                  {'<>'} {task.codeSnippet.language}
+                </Text>
+              )}
 
-            {task.pomodoroCount && task.pomodoroCount > 0 && (
-              <Text style={styles.pomodoroIndicator}>🍅 {task.pomodoroCount}</Text>
-            )}
+              {task.estimatedTime && (
+                <Text style={styles.timeIndicator}>⏱ {task.estimatedTime}m</Text>
+              )}
 
-            {task.dependencies && task.dependencies.length > 0 && (
-              <Text style={styles.dependencyIndicator}>🔗 {task.dependencies.length}</Text>
-            )}
+              {task.pomodoroCount && task.pomodoroCount > 0 && (
+                <Text style={styles.pomodoroIndicator}>🍅 {task.pomodoroCount}</Text>
+              )}
 
-            {task.dueDate && (
-              <Text style={styles.dueDate}>
-                📅{' '}
-                {new Date(task.dueDate).toLocaleDateString('en-US', {
-                  month: 'short',
-                  day: 'numeric',
-                })}
-              </Text>
-            )}
+              {task.dependencies && task.dependencies.length > 0 && (
+                <Text style={styles.dependencyIndicator}>🔗 {task.dependencies.length}</Text>
+              )}
+
+              {task.dueDate && (
+                <Text style={styles.dueDate}>
+                  📅{' '}
+                  {new Date(task.dueDate).toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                  })}
+                </Text>
+              )}
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </Swipeable>
 
       {/* Completion animation overlay */}
       {task.status === 'completed' && (
@@ -331,5 +437,26 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.monoBold,
     fontSize: Theme.typography.fontSize.lg,
     color: Theme.colors.success,
+  },
+  swipeAction: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    paddingHorizontal: Theme.spacing.md,
+  },
+  completeAction: {
+    backgroundColor: Theme.colors.success,
+  },
+  deleteAction: {
+    backgroundColor: Theme.colors.error,
+  },
+  swipeActionText: {
+    fontSize: 24,
+    marginBottom: 4,
+  },
+  swipeActionLabel: {
+    fontFamily: Theme.typography.fontFamily.monoSemiBold,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.surface,
   },
 });
