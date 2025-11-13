@@ -152,7 +152,7 @@ export const Heatmap: React.FC<HeatmapProps> = ({ onDayPress }) => {
         const newSnake = [newHead, ...prevPositions];
         return newSnake.slice(0, 6); // Snake length of 6
       });
-    }, 120);
+    }, 244);
 
     return () => clearInterval(interval);
   }, [snakePositions]);
