@@ -1,44 +1,84 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
-import { Theme, CommonStyles } from '../constants';
+// DashboardScreen - Main dashboard with terminal aesthetics
+
+import React, { useState } from 'react';
+import { View, StyleSheet, ScrollView, Modal } from 'react-native';
+import { CommonStyles } from '../constants';
+import {
+  TerminalHeader,
+  StatsCard,
+  TodayTasks,
+  InProgressTasks,
+  QuickActions,
+} from '../components/dashboard';
+import { TaskFormScreen } from './TaskFormScreen';
+import { Task } from '../types';
 
 interface DashboardScreenProps {
-  username: string;
+  username?: string;
+  onNavigateToTasks?: () => void;
 }
 
-export const DashboardScreen: React.FC<DashboardScreenProps> = ({ username }) => {
-  const [displayedText, setDisplayedText] = useState('');
-  const fullText = `${username}@devtodo:~$ ./today.sh`;
+export const DashboardScreen: React.FC<DashboardScreenProps> = ({
+  username = 'user',
+  onNavigateToTasks,
+}) => {
+  const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
 
-  useEffect(() => {
-    let index = 0;
-    setDisplayedText('');
+  const handleTaskPress = (task: Task) => {
+    setEditingTask(task);
+    setShowTaskForm(true);
+  };
 
-    const interval = setInterval(() => {
-      if (index < fullText.length) {
-        setDisplayedText(fullText.slice(0, index + 1));
-        index++;
-      } else {
-        clearInterval(interval);
-      }
-    }, 50);
+  const handleCloseTaskForm = () => {
+    setShowTaskForm(false);
+    setEditingTask(undefined);
+  };
 
-    return () => clearInterval(interval);
-  }, [fullText]);
+  const handleNewTask = () => {
+    setEditingTask(undefined);
+    setShowTaskForm(true);
+  };
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {displayedText}
-          <Text style={styles.cursor}>▊</Text>
-        </Text>
+    <>
+      <View style={styles.container}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          {/* Terminal Header */}
+          <TerminalHeader />
+
+          {/* Statistics Card */}
+          <StatsCard />
+
+          {/* Today's Tasks */}
+          <TodayTasks onTaskPress={handleTaskPress} onAddTask={handleNewTask} />
+
+          {/* In Progress Tasks */}
+          <InProgressTasks onTaskPress={handleTaskPress} />
+
+          {/* Quick Actions */}
+          <QuickActions
+            onNewTask={handleNewTask}
+            onViewAll={onNavigateToTasks}
+            onFilter={onNavigateToTasks}
+          />
+        </ScrollView>
       </View>
-      <View style={styles.content}>
-        <Text style={styles.subtitle}>Dashboard Screen</Text>
-        <Text style={styles.mono}>// TODO: Implement dashboard features</Text>
-      </View>
-    </View>
+
+      {/* Task Form Modal */}
+      <Modal
+        visible={showTaskForm}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={handleCloseTaskForm}
+      >
+        <TaskFormScreen taskId={editingTask?.id} onClose={handleCloseTaskForm} />
+      </Modal>
+    </>
   );
 };
 
@@ -46,33 +86,11 @@ const styles = StyleSheet.create({
   container: {
     ...CommonStyles.container,
   },
-  header: {
-    paddingTop: 60,
-    paddingHorizontal: Theme.layout.screenPadding,
-    paddingBottom: Theme.spacing.lg,
-    backgroundColor: Theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  content: {
+  scrollView: {
     flex: 1,
-    padding: Theme.layout.screenPadding,
   },
-  title: {
-    ...CommonStyles.h2,
-    fontFamily: Theme.typography.fontFamily.mono,
-    color: Theme.colors.keyword,
-  },
-  cursor: {
-    color: Theme.colors.primary,
-  },
-  subtitle: {
-    ...CommonStyles.textPrimary,
-    marginBottom: Theme.spacing.lg,
-  },
-  mono: {
-    fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.sm,
-    color: Theme.colors.comment,
+  scrollContent: {
+    paddingTop: 60,
+    paddingBottom: 20,
   },
 });
