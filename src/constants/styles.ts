@@ -41,15 +41,10 @@ export const CommonStyles = StyleSheet.create({
   textPrimary: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.md,
-    fontWeight: Theme.typography.fontWeight.regular,
   },
   textSecondary: {
     color: Theme.colors.textSecondary,
     fontSize: Theme.typography.fontSize.sm,
-    fontWeight: Theme.typography.fontWeight.regular,
-  },
-  textBold: {
-    fontWeight: Theme.typography.fontWeight.bold,
   },
   textMono: {
     fontFamily: Theme.typography.fontFamily.mono,
@@ -59,25 +54,21 @@ export const CommonStyles = StyleSheet.create({
   h1: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.xxxl,
-    fontWeight: Theme.typography.fontWeight.bold,
     lineHeight: Theme.typography.fontSize.xxxl * Theme.typography.lineHeight.tight,
   },
   h2: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.xxl,
-    fontWeight: Theme.typography.fontWeight.bold,
     lineHeight: Theme.typography.fontSize.xxl * Theme.typography.lineHeight.tight,
   },
   h3: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.xl,
-    fontWeight: Theme.typography.fontWeight.semibold,
     lineHeight: Theme.typography.fontSize.xl * Theme.typography.lineHeight.normal,
   },
   h4: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.lg,
-    fontWeight: Theme.typography.fontWeight.semibold,
     lineHeight: Theme.typography.fontSize.lg * Theme.typography.lineHeight.normal,
   },
 
@@ -94,7 +85,6 @@ export const CommonStyles = StyleSheet.create({
   buttonText: {
     color: Theme.colors.textPrimary,
     fontSize: Theme.typography.fontSize.md,
-    fontWeight: Theme.typography.fontWeight.semibold,
   },
   buttonSecondary: {
     backgroundColor: Theme.colors.buttonSecondary,
