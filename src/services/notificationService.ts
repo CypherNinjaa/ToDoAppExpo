@@ -218,7 +218,24 @@ class NotificationService {
     data?: Record<string, any>,
     channelId: string = 'task-reminders'
   ): Promise<void> {
-    await this.scheduleNotification(title, body, null, data, channelId);
+    try {
+      // Check if running in Expo Go
+      const isExpoGo = Constants.appOwnership === 'expo';
+
+      if (isExpoGo) {
+        // In Expo Go, we can still schedule local notifications
+        // Just not remote push notifications
+        console.log('📱 Local notification:', title, '-', body);
+      }
+
+      await this.scheduleNotification(title, body, null, data, channelId);
+    } catch (error) {
+      // Silently handle notification errors in Expo Go
+      console.log(
+        'Notification scheduling skipped:',
+        error instanceof Error ? error.message : 'Unknown error'
+      );
+    }
   }
 
   /**

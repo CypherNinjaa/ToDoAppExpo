@@ -1,6 +1,6 @@
 // DashboardScreen - Main dashboard with terminal aesthetics
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, ScrollView, Modal } from 'react-native';
 import { CommonStyles } from '../constants';
 import {
@@ -9,10 +9,14 @@ import {
   TodayTasks,
   InProgressTasks,
   QuickActions,
+  TimerStats,
+  FocusTimeChart,
 } from '../components/dashboard';
 import { PomodoroTimer } from '../components/tasks';
 import { TaskFormScreen } from './TaskFormScreen';
 import { Task } from '../types';
+import { useTaskStore } from '../stores/taskStore';
+import { useStatsStore } from '../stores/statsStore';
 
 interface DashboardScreenProps {
   username?: string;
@@ -25,6 +29,18 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 }) => {
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | undefined>(undefined);
+
+  const tasks = useTaskStore((state) => state.tasks);
+  const calculateFocusTimeStats = useStatsStore((state) => state.calculateFocusTimeStats);
+  const getDailyFocusHistory = useStatsStore((state) => state.getDailyFocusHistory);
+  const focusTimeStats = useStatsStore((state) => state.focusTimeStats);
+
+  // Calculate focus time stats when tasks change
+  useEffect(() => {
+    calculateFocusTimeStats(tasks);
+  }, [tasks, calculateFocusTimeStats]);
+
+  const dailyFocusHistory = getDailyFocusHistory(tasks, 7);
 
   const handleTaskPress = (task: Task) => {
     setEditingTask(task);
@@ -57,6 +73,17 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
 
           {/* Statistics Card */}
           <StatsCard />
+
+          {/* Timer Statistics */}
+          <TimerStats
+            totalFocusTime={focusTimeStats.totalFocusTime}
+            totalPomodoros={focusTimeStats.totalPomodoros}
+            dailyFocusTime={focusTimeStats.dailyFocusTime}
+            todayPomodoros={focusTimeStats.todayPomodoros}
+          />
+
+          {/* Focus Time Chart */}
+          <FocusTimeChart data={dailyFocusHistory} days={7} />
 
           {/* Today's Tasks */}
           <TodayTasks onTaskPress={handleTaskPress} onAddTask={handleNewTask} />

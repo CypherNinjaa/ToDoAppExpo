@@ -18,6 +18,10 @@ interface TimerState {
   completedPomodoros: number;
   completedBreaks: number;
 
+  // Task linking
+  currentTaskId: string | null;
+  sessionStartTime: Date | null;
+
   // Actions
   startTimer: () => void;
   pauseTimer: () => void;
@@ -29,6 +33,10 @@ interface TimerState {
   setBreakDuration: (duration: number) => void;
   resetTimer: () => void;
   initializeFromSettings: (focusDuration?: number, breakDuration?: number) => void;
+  linkTask: (taskId: string) => void;
+  unlinkTask: () => void;
+  onTimerComplete?: () => void;
+  setOnTimerComplete: (callback?: () => void) => void;
 }
 
 const DEFAULT_FOCUS_DURATION = 25 * 60; // 25 minutes
@@ -49,9 +57,18 @@ export const useTimerStore = create<TimerState>((set, get) => ({
   completedPomodoros: 0,
   completedBreaks: 0,
 
+  // Task linking
+  currentTaskId: null,
+  sessionStartTime: null,
+  onTimerComplete: undefined,
+
   // Actions
   startTimer: () => {
-    set({ status: 'running' });
+    const state = get();
+    set({
+      status: 'running',
+      sessionStartTime: state.sessionStartTime || new Date(),
+    });
   },
 
   pauseTimer: () => {
@@ -79,7 +96,12 @@ export const useTimerStore = create<TimerState>((set, get) => ({
           completedPomodoros: state.completedPomodoros + 1,
           status: 'idle',
           remainingTime: 0,
+          sessionStartTime: null,
         });
+        // Call completion callback if exists
+        if (state.onTimerComplete) {
+          state.onTimerComplete();
+        }
       } else {
         set({
           completedBreaks: state.completedBreaks + 1,
@@ -155,5 +177,17 @@ export const useTimerStore = create<TimerState>((set, get) => ({
         ? { remainingTime: newBreakDuration, totalTime: newBreakDuration }
         : {}),
     });
+  },
+
+  linkTask: (taskId: string) => {
+    set({ currentTaskId: taskId });
+  },
+
+  unlinkTask: () => {
+    set({ currentTaskId: null, sessionStartTime: null });
+  },
+
+  setOnTimerComplete: (callback?: () => void) => {
+    set({ onTimerComplete: callback });
   },
 }));

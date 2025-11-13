@@ -8,15 +8,23 @@ import {
   Modal,
   ScrollView,
   Animated,
+  FlatList,
 } from 'react-native';
 import { useTimerStore } from '../../stores/timerStore';
 import { useThemeStore } from '../../stores/themeStore';
 import { useSettingsStore } from '../../stores/settingsStore';
+import { useTaskStore } from '../../stores/taskStore';
 import { TimerSettings } from '../inputs/TimerSettings';
+import { notificationService } from '../../services/notificationService';
 
 const { width } = Dimensions.get('window');
 
-export const PomodoroTimer: React.FC = () => {
+interface PomodoroTimerProps {
+  compact?: boolean;
+  initialTaskId?: string;
+}
+
+export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, initialTaskId }) => {
   const currentTheme = useThemeStore((state) => state.currentTheme);
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
@@ -25,6 +33,7 @@ export const PomodoroTimer: React.FC = () => {
   const updateSettings = useSettingsStore((state) => state.updateSettings);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showTaskPicker, setShowTaskPicker] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [editMinutes, setEditMinutes] = useState(25);
   const [editSeconds, setEditSeconds] = useState(0);
@@ -35,12 +44,16 @@ export const PomodoroTimer: React.FC = () => {
   const glitchOpacity = useRef(new Animated.Value(0)).current;
   const glitchTranslateX = useRef(new Animated.Value(0)).current;
 
+  const tasks = useTaskStore((state) => state.tasks);
+  const updateTask = useTaskStore((state) => state.updateTask);
+
   const {
     type,
     status,
     remainingTime,
     totalTime,
     completedPomodoros,
+    currentTaskId,
     startTimer,
     pauseTimer,
     stopTimer,
@@ -50,7 +63,52 @@ export const PomodoroTimer: React.FC = () => {
     initializeFromSettings,
     setFocusDuration,
     setBreakDuration,
+    linkTask,
+    unlinkTask,
+    setOnTimerComplete,
   } = useTimerStore();
+
+  const linkedTask = tasks.find((t) => t.id === currentTaskId);
+
+  // Auto-link task on mount if initialTaskId provided
+  useEffect(() => {
+    if (initialTaskId && !currentTaskId) {
+      linkTask(initialTaskId);
+    }
+  }, [initialTaskId, currentTaskId, linkTask]);
+
+  // Setup timer completion handler
+  useEffect(() => {
+    setOnTimerComplete(async () => {
+      // Send notification (safe for Expo Go)
+      try {
+        const notificationBody = linkedTask
+          ? `Great work on "${linkedTask.title}"! Time for a break.`
+          : 'Focus session completed! Take a break.';
+
+        await notificationService.sendImmediateNotification(
+          '🎯 Pomodoro Complete!',
+          notificationBody,
+          { type: 'pomodoro-complete', taskId: currentTaskId },
+          'task-reminders'
+        );
+      } catch (error) {
+        console.log('Notification not sent (may be running in Expo Go):', error);
+      }
+
+      // Update task stats
+      if (currentTaskId && linkedTask) {
+        const focusDurationMinutes = Math.floor(totalTime / 60);
+        await updateTask(currentTaskId, {
+          pomodoroCount: (linkedTask.pomodoroCount || 0) + 1,
+          totalFocusTime: (linkedTask.totalFocusTime || 0) + focusDurationMinutes,
+          actualTime: (linkedTask.actualTime || 0) + focusDurationMinutes,
+        });
+      }
+    });
+
+    return () => setOnTimerComplete(undefined);
+  }, [currentTaskId, linkedTask, totalTime, setOnTimerComplete, updateTask]);
 
   // Initialize timer from settings on mount
   useEffect(() => {
@@ -251,34 +309,70 @@ export const PomodoroTimer: React.FC = () => {
   return (
     <>
       <View
-        style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border }]}
+        style={[
+          compact ? styles.compactContainer : styles.container,
+          { backgroundColor: theme.background, borderColor: theme.border },
+        ]}
       >
         {/* Debug mode header */}
-        <View style={[styles.header, { borderBottomColor: theme.border }]}>
-          <Text style={[styles.headerText, { color: theme.textPrimary }]}>
-            {`// DEBUG MODE: Pomodoro Timer`}
-          </Text>
-          <View style={styles.headerRight}>
-            <Text style={[styles.sessionInfo, { color: theme.textSecondary }]}>
-              {`/* Sessions: ${completedPomodoros} */`}
+        {!compact && (
+          <View style={[styles.header, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.headerText, { color: theme.textPrimary }]}>
+              {`// DEBUG MODE: Pomodoro Timer`}
             </Text>
-            <TouchableOpacity
-              style={[styles.settingsButton, { borderColor: theme.border }]}
-              onPress={() => setShowSettings(true)}
-            >
-              <Text style={[styles.settingsIcon, { color: theme.textSecondary }]}>⚙</Text>
-            </TouchableOpacity>
+            <View style={styles.headerRight}>
+              <Text style={[styles.sessionInfo, { color: theme.textSecondary }]}>
+                {`/* Sessions: ${completedPomodoros} */`}
+              </Text>
+              <TouchableOpacity
+                style={[styles.settingsButton, { borderColor: theme.border }]}
+                onPress={() => setShowSettings(true)}
+              >
+                <Text style={[styles.settingsIcon, { color: theme.textSecondary }]}>⚙</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
+        )}
 
         {/* Timer mode indicator */}
-        <View style={styles.modeContainer}>
-          <Text
-            style={[styles.modeText, { color: type === 'focus' ? theme.error : theme.success }]}
+        {!compact && (
+          <View style={styles.modeContainer}>
+            <Text
+              style={[styles.modeText, { color: type === 'focus' ? theme.error : theme.success }]}
+            >
+              {type === 'focus' ? '>> FOCUS_MODE' : '>> BREAK_MODE'}
+            </Text>
+          </View>
+        )}
+
+        {/* Linked Task Display */}
+        {!compact && (
+          <TouchableOpacity
+            style={[styles.linkedTaskContainer, { borderColor: theme.border }]}
+            onPress={() => setShowTaskPicker(true)}
+            disabled={status === 'running'}
           >
-            {type === 'focus' ? '>> FOCUS_MODE' : '>> BREAK_MODE'}
-          </Text>
-        </View>
+            {linkedTask ? (
+              <View style={styles.linkedTaskContent}>
+                <Text style={[styles.linkedTaskLabel, { color: theme.comment }]}>
+                  {'// linked task:'}
+                </Text>
+                <Text style={[styles.linkedTaskTitle, { color: theme.string }]} numberOfLines={1}>
+                  {`"${linkedTask.title}"`}
+                </Text>
+                {linkedTask.pomodoroCount && linkedTask.pomodoroCount > 0 && (
+                  <Text style={[styles.pomodoroCount, { color: theme.number }]}>
+                    {`🍅 ${linkedTask.pomodoroCount}`}
+                  </Text>
+                )}
+              </View>
+            ) : (
+              <Text style={[styles.linkedTaskPlaceholder, { color: theme.textSecondary }]}>
+                {'$ link-task --select'}
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Timer display or Edit mode */}
         {isEditing ? (
@@ -347,20 +441,24 @@ export const PomodoroTimer: React.FC = () => {
         )}
 
         {/* Progress bar */}
-        <View style={[styles.progressBarContainer, { backgroundColor: theme.border }]}>
-          <View
-            style={[
-              styles.progressBar,
-              {
-                width: `${progress}%`,
-                backgroundColor: type === 'focus' ? theme.error : theme.success,
-              },
-            ]}
-          />
-        </View>
-        <Text style={[styles.progressText, { color: theme.textSecondary }]}>
-          {`progress: ${progress.toFixed(1)}%`}
-        </Text>
+        {!compact && (
+          <>
+            <View style={[styles.progressBarContainer, { backgroundColor: theme.border }]}>
+              <View
+                style={[
+                  styles.progressBar,
+                  {
+                    width: `${progress}%`,
+                    backgroundColor: type === 'focus' ? theme.error : theme.success,
+                  },
+                ]}
+              />
+            </View>
+            <Text style={[styles.progressText, { color: theme.textSecondary }]}>
+              {`progress: ${progress.toFixed(1)}%`}
+            </Text>
+          </>
+        )}
 
         {/* Control buttons */}
         <View style={styles.controlsContainer}>
@@ -394,55 +492,137 @@ export const PomodoroTimer: React.FC = () => {
             </Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              { backgroundColor: theme.background, borderColor: theme.warning },
-            ]}
-            onPress={handleSwitchMode}
-            disabled={status === 'running'}
-          >
-            <Text
+          {!compact && (
+            <TouchableOpacity
               style={[
-                styles.controlButtonText,
-                { color: status === 'running' ? theme.textSecondary : theme.warning },
+                styles.controlButton,
+                { backgroundColor: theme.background, borderColor: theme.warning },
               ]}
+              onPress={handleSwitchMode}
+              disabled={status === 'running'}
             >
-              {type === 'focus' ? '$ break' : '$ focus'}
-            </Text>
-          </TouchableOpacity>
+              <Text
+                style={[
+                  styles.controlButtonText,
+                  { color: status === 'running' ? theme.textSecondary : theme.warning },
+                ]}
+              >
+                {type === 'focus' ? '$ break' : '$ focus'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Debug footer */}
-        <View style={styles.footer}>
-          <Text style={[styles.footerText, { color: theme.textSecondary }]}>
-            {`// totalTime: ${totalTime}s | remaining: ${remainingTime}s`}
-          </Text>
-        </View>
+        {!compact && (
+          <View style={styles.footer}>
+            <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+              {`// totalTime: ${totalTime}s | remaining: ${remainingTime}s`}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Timer Settings Modal */}
-      <Modal
-        visible={showSettings}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowSettings(false)}
-      >
-        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
-          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
-            <Text style={[styles.modalTitle, { color: theme.primary }]}>
-              {'$ ./timer-config.sh'}
-            </Text>
-            <TouchableOpacity
-              style={[styles.closeButton, { borderColor: theme.border }]}
-              onPress={() => setShowSettings(false)}
-            >
-              <Text style={[styles.closeButtonText, { color: theme.textPrimary }]}>✕</Text>
-            </TouchableOpacity>
+      {!compact && (
+        <Modal
+          visible={showSettings}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowSettings(false)}
+        >
+          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.primary }]}>
+                {'$ ./timer-config.sh'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.closeButton, { borderColor: theme.border }]}
+                onPress={() => setShowSettings(false)}
+              >
+                <Text style={[styles.closeButtonText, { color: theme.textPrimary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <TimerSettings />
           </View>
-          <TimerSettings />
-        </View>
-      </Modal>
+        </Modal>
+      )}
+
+      {/* Task Picker Modal */}
+      {!compact && (
+        <Modal
+          visible={showTaskPicker}
+          animationType="slide"
+          presentationStyle="pageSheet"
+          onRequestClose={() => setShowTaskPicker(false)}
+        >
+          <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+            <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+              <Text style={[styles.modalTitle, { color: theme.primary }]}>
+                {'$ select-task --link-to-timer'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.closeButton, { borderColor: theme.border }]}
+                onPress={() => setShowTaskPicker(false)}
+              >
+                <Text style={[styles.closeButtonText, { color: theme.textPrimary }]}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={tasks.filter((t) => t.status !== 'completed' && t.status !== 'archived')}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.taskPickerItem,
+                    {
+                      backgroundColor: item.id === currentTaskId ? theme.surface : 'transparent',
+                      borderColor: theme.border,
+                    },
+                  ]}
+                  onPress={() => {
+                    if (item.id === currentTaskId) {
+                      unlinkTask();
+                    } else {
+                      linkTask(item.id);
+                    }
+                    setShowTaskPicker(false);
+                  }}
+                >
+                  <View style={styles.taskPickerContent}>
+                    <Text style={[styles.taskPickerTitle, { color: theme.textPrimary }]}>
+                      {item.title}
+                    </Text>
+                    <View style={styles.taskPickerMeta}>
+                      <Text
+                        style={[
+                          styles.taskPickerCategory,
+                          { color: theme[item.category] || theme.primary },
+                        ]}
+                      >
+                        {item.category}
+                      </Text>
+                      {item.pomodoroCount && item.pomodoroCount > 0 && (
+                        <Text style={[styles.taskPickerPomodoro, { color: theme.textSecondary }]}>
+                          {`🍅 ${item.pomodoroCount}`}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+                  {item.id === currentTaskId && (
+                    <Text style={[styles.linkedBadge, { color: theme.success }]}>✓ linked</Text>
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={
+                <Text style={[styles.emptyText, { color: theme.comment }]}>
+                  {'// No active tasks found'}
+                </Text>
+              }
+            />
+          </View>
+        </Modal>
+      )}
     </>
   );
 };
@@ -453,6 +633,12 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 16,
     marginVertical: 8,
+  },
+  compactContainer: {
+    borderWidth: 1,
+    borderRadius: 6,
+    padding: 12,
+    borderStyle: 'dashed',
   },
   header: {
     borderBottomWidth: 1,
@@ -643,5 +829,84 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  linkedTaskContainer: {
+    marginBottom: 16,
+    padding: 12,
+    borderWidth: 1,
+    borderRadius: 6,
+    borderStyle: 'dashed',
+  },
+  linkedTaskContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  linkedTaskLabel: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 11,
+    marginBottom: 4,
+    opacity: 0.6,
+  },
+  linkedTaskTitle: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 14,
+    flex: 1,
+  },
+  pomodoroCount: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 12,
+    marginLeft: 8,
+  },
+  linkedTaskPlaceholder: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 13,
+    opacity: 0.5,
+  },
+  taskPickerList: {
+    flex: 1,
+  },
+  taskPickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 6,
+  },
+  taskPickerContent: {
+    flex: 1,
+  },
+  taskPickerTitle: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 14,
+    marginBottom: 6,
+  },
+  taskPickerMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  taskPickerCategory: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  taskPickerPomodoro: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 11,
+  },
+  linkedBadge: {
+    fontFamily: 'FiraCode-Bold',
+    fontSize: 11,
+    textTransform: 'uppercase',
+  },
+  emptyText: {
+    fontFamily: 'FiraCode-Regular',
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 40,
   },
 });

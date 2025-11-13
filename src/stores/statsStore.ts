@@ -2,18 +2,40 @@
 
 import { create } from 'zustand';
 import { StorageService } from '../services/storageService';
+import { Task } from '../types';
+
+interface FocusTimeStats {
+  totalFocusTime: number; // in minutes
+  totalPomodoros: number;
+  dailyFocusTime: number;
+  weeklyFocusTime: number;
+  todayPomodoros: number;
+  averageDailyFocus: number;
+}
+
+interface DailyFocusData {
+  date: string; // YYYY-MM-DD
+  focusTime: number; // minutes
+  pomodoros: number;
+}
 
 interface StatsStore {
   // State
   streak: number;
   totalCompleted: number;
   isLoading: boolean;
+  focusTimeStats: FocusTimeStats;
+  dailyFocusHistory: DailyFocusData[];
 
   // Actions
   loadStats: () => Promise<void>;
   updateStreak: (days: number) => Promise<void>;
   incrementCompleted: () => Promise<void>;
   calculateStreak: () => Promise<void>;
+  calculateFocusTimeStats: (tasks: Task[]) => void;
+  getDailyFocusHistory: (tasks: Task[], days: number) => DailyFocusData[];
+  getTodayFocusTime: (tasks: Task[]) => number;
+  getWeeklyFocusTime: (tasks: Task[]) => number;
 }
 
 export const useStatsStore = create<StatsStore>((set, get) => ({
@@ -21,6 +43,15 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
   streak: 0,
   totalCompleted: 0,
   isLoading: false,
+  focusTimeStats: {
+    totalFocusTime: 0,
+    totalPomodoros: 0,
+    dailyFocusTime: 0,
+    weeklyFocusTime: 0,
+    todayPomodoros: 0,
+    averageDailyFocus: 0,
+  },
+  dailyFocusHistory: [],
 
   // Load statistics from storage
   loadStats: async () => {
@@ -105,5 +136,102 @@ export const useStatsStore = create<StatsStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to calculate streak:', error);
     }
+  },
+
+  // Calculate focus time statistics from tasks
+  calculateFocusTimeStats: (tasks: Task[]) => {
+    const totalFocusTime = tasks.reduce((sum, task) => sum + (task.totalFocusTime || 0), 0);
+    const totalPomodoros = tasks.reduce((sum, task) => sum + (task.pomodoroCount || 0), 0);
+
+    const dailyFocusTime = get().getTodayFocusTime(tasks);
+    const weeklyFocusTime = get().getWeeklyFocusTime(tasks);
+
+    const todayPomodoros = tasks.reduce((sum, task) => {
+      if (!task.completedAt) return sum;
+      const taskDate = new Date(task.completedAt);
+      const today = new Date();
+      if (taskDate.toDateString() === today.toDateString()) {
+        return sum + (task.pomodoroCount || 0);
+      }
+      return sum;
+    }, 0);
+
+    // Calculate average daily focus for last 7 days
+    const history = get().getDailyFocusHistory(tasks, 7);
+    const averageDailyFocus =
+      history.length > 0
+        ? Math.round(history.reduce((sum, day) => sum + day.focusTime, 0) / history.length)
+        : 0;
+
+    set({
+      focusTimeStats: {
+        totalFocusTime,
+        totalPomodoros,
+        dailyFocusTime,
+        weeklyFocusTime,
+        todayPomodoros,
+        averageDailyFocus,
+      },
+    });
+  },
+
+  // Get daily focus history for the last N days
+  getDailyFocusHistory: (tasks: Task[], days: number): DailyFocusData[] => {
+    const history: Map<string, DailyFocusData> = new Map();
+    const today = new Date();
+
+    // Initialize last N days
+    for (let i = 0; i < days; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      history.set(dateStr, { date: dateStr, focusTime: 0, pomodoros: 0 });
+    }
+
+    // Populate with actual data
+    tasks.forEach((task) => {
+      if (!task.totalFocusTime && !task.pomodoroCount) return;
+
+      // Use completedAt or createdAt as reference
+      const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
+      const dateStr = taskDate.toISOString().split('T')[0];
+
+      if (history.has(dateStr)) {
+        const existing = history.get(dateStr)!;
+        existing.focusTime += task.totalFocusTime || 0;
+        existing.pomodoros += task.pomodoroCount || 0;
+      }
+    });
+
+    return Array.from(history.values()).sort((a, b) => a.date.localeCompare(b.date));
+  },
+
+  // Get today's focus time
+  getTodayFocusTime: (tasks: Task[]): number => {
+    const today = new Date().toDateString();
+    return tasks.reduce((sum, task) => {
+      if (!task.totalFocusTime) return sum;
+      const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
+      if (taskDate.toDateString() === today) {
+        return sum + task.totalFocusTime;
+      }
+      return sum;
+    }, 0);
+  },
+
+  // Get weekly focus time (last 7 days)
+  getWeeklyFocusTime: (tasks: Task[]): number => {
+    const today = new Date();
+    const weekAgo = new Date(today);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+
+    return tasks.reduce((sum, task) => {
+      if (!task.totalFocusTime) return sum;
+      const taskDate = task.completedAt ? new Date(task.completedAt) : new Date(task.createdAt);
+      if (taskDate >= weekAgo && taskDate <= today) {
+        return sum + task.totalFocusTime;
+      }
+      return sum;
+    }, 0);
   },
 }));

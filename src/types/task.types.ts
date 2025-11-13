@@ -32,6 +32,8 @@ export interface Task {
   estimatedTime?: number; // in minutes
   actualTime?: number; // in minutes
   timerStartedAt?: Date; // when timer was started
+  pomodoroCount?: number; // number of completed pomodoros
+  totalFocusTime?: number; // total minutes spent in focus mode
   subtasks?: SubTask[];
   codeSnippet?: CodeSnippet;
   dependencies?: string[]; // task IDs this task depends on

@@ -15,6 +15,7 @@ import {
 import { Theme } from '../constants';
 import { useTaskStore } from '../stores';
 import { TaskPriority, TaskCategory, SubTask, CodeSnippet } from '../types';
+import { PomodoroTimer } from '../components/tasks';
 import {
   CodeInput,
   PrioritySelector,
@@ -165,6 +166,14 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialD
           {isEditMode ? '// Edit existing task' : '// Create new task'}
         </Text>
       </View>
+
+      {/* Compact Timer Section */}
+      {taskId && (
+        <View style={styles.timerSection}>
+          <Text style={styles.timerLabel}>// Focus Timer</Text>
+          <PomodoroTimer compact initialTaskId={taskId} />
+        </View>
+      )}
 
       {/* Form */}
       <ScrollView
@@ -417,5 +426,18 @@ const styles = StyleSheet.create({
     borderRadius: Theme.borderRadius.md,
     paddingHorizontal: Theme.spacing.md,
     paddingVertical: Theme.spacing.sm,
+  },
+  timerSection: {
+    backgroundColor: Theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+    paddingHorizontal: Theme.layout.screenPadding,
+    paddingVertical: Theme.spacing.md,
+  },
+  timerLabel: {
+    fontFamily: Theme.typography.fontFamily.monoSemiBold,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.keyword,
+    marginBottom: Theme.spacing.sm,
   },
 });

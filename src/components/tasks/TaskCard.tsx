@@ -172,6 +172,10 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               <Text style={styles.timeIndicator}>⏱ {task.estimatedTime}m</Text>
             )}
 
+            {task.pomodoroCount && task.pomodoroCount > 0 && (
+              <Text style={styles.pomodoroIndicator}>🍅 {task.pomodoroCount}</Text>
+            )}
+
             {task.dependencies && task.dependencies.length > 0 && (
               <Text style={styles.dependencyIndicator}>🔗 {task.dependencies.length}</Text>
             )}
@@ -297,6 +301,11 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.function,
+  },
+  pomodoroIndicator: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.error,
   },
   dependencyIndicator: {
     fontFamily: Theme.typography.fontFamily.mono,
