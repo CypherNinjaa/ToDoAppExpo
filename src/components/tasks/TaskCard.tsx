@@ -150,10 +150,30 @@ export const TaskCard: React.FC<TaskCardProps> = ({
               [{statusInfo.text}]
             </Text>
 
+            {task.subtasks && task.subtasks.length > 0 && (
+              <Text style={styles.subtaskProgress}>
+                ✓ {task.subtasks.filter((st) => st.completed).length}/{task.subtasks.length}
+              </Text>
+            )}
+
             {task.tags && task.tags.length > 0 && (
               <Text style={styles.tags} numberOfLines={1}>
                 {task.tags.map((tag) => `#${tag}`).join(' ')}
               </Text>
+            )}
+
+            {task.codeSnippet && (
+              <Text style={styles.codeIndicator}>
+                {'<>'} {task.codeSnippet.language}
+              </Text>
+            )}
+
+            {task.estimatedTime && (
+              <Text style={styles.timeIndicator}>⏱ {task.estimatedTime}m</Text>
+            )}
+
+            {task.dependencies && task.dependencies.length > 0 && (
+              <Text style={styles.dependencyIndicator}>🔗 {task.dependencies.length}</Text>
             )}
 
             {task.dueDate && (
@@ -257,11 +277,31 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
   },
+  subtaskProgress: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.success,
+  },
   tags: {
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.variable,
     flex: 1,
+  },
+  codeIndicator: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.keyword,
+  },
+  timeIndicator: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.function,
+  },
+  dependencyIndicator: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.warning,
   },
   dueDate: {
     fontFamily: Theme.typography.fontFamily.mono,

@@ -3,3 +3,4 @@
 export * from './inputs';
 export * from './tasks';
 export * from './dashboard';
+export * from './calendar';

@@ -10,6 +10,11 @@ export interface SubTask {
   completed: boolean;
 }
 
+export interface CodeSnippet {
+  code: string;
+  language: string;
+}
+
 export interface Task {
   id: string;
   title: string;
@@ -24,8 +29,10 @@ export interface Task {
   completedAt?: Date;
   estimatedTime?: number; // in minutes
   actualTime?: number; // in minutes
+  timerStartedAt?: Date; // when timer was started
   subtasks?: SubTask[];
-  codeSnippet?: string;
+  codeSnippet?: CodeSnippet;
+  dependencies?: string[]; // task IDs this task depends on
   links?: string[];
 }
 

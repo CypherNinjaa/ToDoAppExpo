@@ -2,6 +2,7 @@
 export type {
   Task,
   SubTask,
+  CodeSnippet,
   TaskCategory,
   TaskPriority,
   TaskStatus,

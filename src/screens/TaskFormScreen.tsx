@@ -10,28 +10,46 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  TextInput,
 } from 'react-native';
 import { Theme } from '../constants';
 import { useTaskStore } from '../stores';
-import { TaskPriority, TaskCategory } from '../types';
-import { CodeInput, PrioritySelector, CategorySelector, DatePicker } from '../components/inputs';
+import { TaskPriority, TaskCategory, SubTask, CodeSnippet } from '../types';
+import {
+  CodeInput,
+  PrioritySelector,
+  CategorySelector,
+  DatePicker,
+  TagInput,
+  CodeSnippetInput,
+  TimeInput,
+  DependencySelector,
+} from '../components/inputs';
+import { SubtaskItem } from '../components/tasks';
 
 interface TaskFormScreenProps {
   taskId?: string;
+  initialDate?: Date;
   onClose: () => void;
 }
 
-export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, onClose }) => {
+export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, initialDate, onClose }) => {
   const addTask = useTaskStore((state) => state.addTask);
   const updateTask = useTaskStore((state) => state.updateTask);
   const getTaskById = useTaskStore((state) => state.getTaskById);
+  const tasks = useTaskStore((state) => state.tasks);
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TaskPriority>('medium');
   const [category, setCategory] = useState<TaskCategory>('coding');
-  const [dueDate, setDueDate] = useState<Date | undefined>(undefined);
-  const [tags, setTags] = useState('');
+  const [dueDate, setDueDate] = useState<Date | undefined>(initialDate);
+  const [tags, setTags] = useState<string[]>([]);
+  const [subtasks, setSubtasks] = useState<SubTask[]>([]);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+  const [codeSnippet, setCodeSnippet] = useState<CodeSnippet | undefined>();
+  const [estimatedTime, setEstimatedTime] = useState<number | undefined>();
+  const [dependencies, setDependencies] = useState<string[]>([]);
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,7 +65,11 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, onClose 
         setPriority(task.priority);
         setCategory(task.category);
         setDueDate(task.dueDate);
-        setTags(task.tags.join(', '));
+        setTags(task.tags || []);
+        setSubtasks(task.subtasks || []);
+        setCodeSnippet(task.codeSnippet);
+        setEstimatedTime(task.estimatedTime);
+        setDependencies(task.dependencies || []);
       }
     }
   }, [taskId, getTaskById]);
@@ -83,10 +105,11 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, onClose 
         category,
         status: 'pending' as const,
         dueDate,
-        tags: tags
-          .split(',')
-          .map((tag) => tag.trim())
-          .filter((tag) => tag.length > 0),
+        tags,
+        subtasks,
+        codeSnippet,
+        estimatedTime,
+        dependencies,
       };
 
       if (isEditMode && taskId) {
@@ -174,13 +197,82 @@ export const TaskFormScreen: React.FC<TaskFormScreenProps> = ({ taskId, onClose 
         <DatePicker label="// Set deadline (optional)" value={dueDate} onChange={setDueDate} />
 
         {/* Tags */}
-        <CodeInput
-          label="// Tags (comma separated)"
-          placeholder='const tags = ["react", "typescript"];'
-          value={tags}
-          onChangeText={setTags}
-          syntaxType="variable"
-          showLineNumber={false}
+        <TagInput
+          label='// Tags: const tags = ["tag1", "tag2"];'
+          tags={tags}
+          onTagsChange={setTags}
+          placeholder="Type tag and press Enter..."
+        />
+
+        {/* Subtasks */}
+        <View style={styles.subtasksSection}>
+          <Text style={styles.subtasksLabel}>// Subtasks: const subtasks = [];</Text>
+
+          {/* Subtask list */}
+          {subtasks.map((subtask) => (
+            <SubtaskItem
+              key={subtask.id}
+              subtask={subtask}
+              onToggle={(id) => {
+                setSubtasks(
+                  subtasks.map((st) => (st.id === id ? { ...st, completed: !st.completed } : st))
+                );
+              }}
+              onRemove={(id) => {
+                setSubtasks(subtasks.filter((st) => st.id !== id));
+              }}
+              isEditing={true}
+            />
+          ))}
+
+          {/* Add subtask input */}
+          <View style={styles.addSubtaskContainer}>
+            <TextInput
+              style={styles.addSubtaskInput}
+              value={newSubtaskTitle}
+              onChangeText={setNewSubtaskTitle}
+              placeholder="+ Add subtask..."
+              placeholderTextColor={Theme.colors.comment}
+              onSubmitEditing={() => {
+                if (newSubtaskTitle.trim()) {
+                  setSubtasks([
+                    ...subtasks,
+                    {
+                      id: Date.now().toString(),
+                      title: newSubtaskTitle.trim(),
+                      completed: false,
+                    },
+                  ]);
+                  setNewSubtaskTitle('');
+                }
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Code Snippet */}
+        <CodeSnippetInput
+          label='// Code Snippet: const snippet = { code: "", language: "" };'
+          value={codeSnippet}
+          onChange={setCodeSnippet}
+          placeholder="// Add code snippet..."
+        />
+
+        {/* Estimated Time */}
+        <TimeInput
+          label="// Estimated Time: const duration = 60; // minutes"
+          value={estimatedTime}
+          onChange={setEstimatedTime}
+          placeholder="0"
+        />
+
+        {/* Dependencies */}
+        <DependencySelector
+          label='// Dependencies: const blockedBy = ["task1", "task2"];'
+          selectedIds={dependencies}
+          currentTaskId={taskId}
+          availableTasks={tasks}
+          onSelectionChange={setDependencies}
         />
 
         {/* Buttons */}
@@ -284,5 +376,28 @@ const styles = StyleSheet.create({
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
     color: Theme.colors.comment,
+  },
+  subtasksSection: {
+    marginTop: Theme.spacing.lg,
+  },
+  subtasksLabel: {
+    fontFamily: Theme.typography.fontFamily.monoSemiBold,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.keyword,
+    marginBottom: Theme.spacing.md,
+  },
+  addSubtaskContainer: {
+    marginTop: Theme.spacing.sm,
+  },
+  addSubtaskInput: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.md,
+    color: Theme.colors.textPrimary,
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.md,
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
   },
 });
