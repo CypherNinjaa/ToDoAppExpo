@@ -1,15 +1,18 @@
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
-// Configure how notifications should be handled when the app is in foreground
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+// Only configure notification handler if not in Expo Go
+if (!Constants.appOwnership || Constants.appOwnership === 'standalone') {
+  Notifications.setNotificationHandler({
+    handleNotification: async () => ({
+      shouldShowBanner: true,
+      shouldShowList: true,
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+    }),
+  });
+}
 
 class NotificationService {
   private permissionGranted: boolean = false;
@@ -245,6 +248,14 @@ class NotificationService {
   async initialize(): Promise<boolean> {
     try {
       console.log('⚙️  Initializing notification service...');
+
+      // Check if running in Expo Go
+      const isExpoGo = Constants.appOwnership === 'expo';
+
+      if (isExpoGo && Platform.OS === 'android') {
+        console.log('⚠️  Running in Expo Go - Remote notifications not available');
+        console.log('✓ Local notifications will still work');
+      }
 
       // Configure notification channels (Android)
       await this.configureNotificationChannels();
