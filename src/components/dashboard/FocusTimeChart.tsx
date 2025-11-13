@@ -20,9 +20,10 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
 
-  // Get max value for scaling (ensure at least 60 minutes for proper scaling)
-  const maxFocusTime = Math.max(...data.map((d) => d.focusTime), 60);
-  const maxHeight = 150; // Increased from 120
+  // Get max value for scaling - use actual max or reasonable default
+  const actualMax = Math.max(...data.map((d) => d.focusTime));
+  const maxFocusTime = actualMax > 0 ? Math.max(actualMax, 30) : 60; // Scale to at least 30min if there's data
+  const maxHeight = 150;
 
   // Format date for display
   const formatDate = (dateStr: string): string => {
@@ -57,7 +58,7 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
     if (intensity >= 0.7) return theme.success;
     if (intensity >= 0.4) return theme.primary;
     if (intensity >= 0.2) return theme.warning;
-    return theme.error + '60';
+    return theme.error + '80';
   };
 
   return (
@@ -85,10 +86,10 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
           {/* Bars */}
           <View style={styles.barsContainer}>
             {data.map((day, index) => {
-              // Calculate bar height with better minimum visibility
+              // Calculate bar height - ensure good visibility for any data
               const barHeight =
                 day.focusTime > 0
-                  ? Math.max((day.focusTime / maxFocusTime) * maxHeight, 12) // Minimum 12px for visibility
+                  ? Math.max((day.focusTime / maxFocusTime) * maxHeight, 20) // Minimum 20px for visibility
                   : 8; // Empty day bar
               const barColor = getBarColor(day.focusTime);
               const isEmpty = day.focusTime === 0;
@@ -122,12 +123,19 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
                         },
                       ]}
                     >
-                      {day.focusTime > 0 && barHeight > 20 && (
+                      {day.focusTime > 0 && barHeight > 25 && (
                         <Text style={[styles.barLabel, { color: theme.background }]}>
                           {formatTime(day.focusTime)}
                         </Text>
                       )}
                     </View>
+
+                    {/* Show time below bar if too small to fit inside */}
+                    {day.focusTime > 0 && barHeight <= 25 && (
+                      <Text style={[styles.timeBelow, { color: theme.textSecondary }]}>
+                        {formatTime(day.focusTime)}
+                      </Text>
+                    )}
                   </View>
 
                   {/* X-axis label */}
@@ -247,6 +255,12 @@ const styles = StyleSheet.create({
   barLabel: {
     fontFamily: Theme.typography.fontFamily.monoBold,
     fontSize: 10, // Increased from 9
+    textAlign: 'center',
+  },
+  timeBelow: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: 9,
+    marginTop: 4,
     textAlign: 'center',
   },
   dateLabel: {
