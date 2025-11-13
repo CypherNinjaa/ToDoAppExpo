@@ -14,17 +14,25 @@ import { useTaskStore } from '../stores';
 import { TaskCard } from '../components/tasks';
 import { TaskFormScreen } from './TaskFormScreen';
 import { Task, TaskStatus, TaskCategory, TaskPriority } from '../types';
+import {
+  SearchBar,
+  FilterPanel,
+  SortSelector,
+  SortOption,
+  SortDirection,
+  CommandPalette,
+  Command,
+} from '../components/inputs';
+import { processTaskList, getAllTags } from '../utils/searchFilter';
+import { useKeyboardShortcut } from '../hooks';
 
 interface TasksScreenProps {
   username: string;
 }
 
-type FilterType = 'all' | TaskStatus;
-type SortType = 'date' | 'priority' | 'category';
-
 export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
   const [displayedText, setDisplayedText] = useState('');
-  const fullText = '~$ ./list-tasks.sh --all';
+  const fullText = '~$ ./list-tasks.sh --search --filter --sort';
 
   const tasks = useTaskStore((state) => state.tasks);
   const isLoading = useTaskStore((state) => state.isLoading);
@@ -32,10 +40,33 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
   const deleteTask = useTaskStore((state) => state.deleteTask);
 
-  const [filter, setFilter] = useState<FilterType>('all');
-  const [sortBy, setSortBy] = useState<SortType>('date');
   const [refreshing, setRefreshing] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
+  const [showCommandPalette, setShowCommandPalette] = useState(false);
+
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [useRegex, setUseRegex] = useState(false);
+
+  // Filter state
+  const [selectedCategories, setSelectedCategories] = useState<TaskCategory[]>([]);
+  const [selectedPriorities, setSelectedPriorities] = useState<TaskPriority[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<TaskStatus[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  // Sort state
+  const [sortBy, setSortBy] = useState<SortOption>('date');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+
+  // Keyboard shortcuts
+  useKeyboardShortcut([
+    {
+      key: 'k',
+      ctrlKey: true,
+      action: () => setShowCommandPalette(true),
+    },
+  ]);
 
   useEffect(() => {
     let index = 0;
@@ -59,37 +90,173 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
     setRefreshing(false);
   };
 
-  // Filter tasks
-  const getFilteredTasks = (): Task[] => {
-    if (filter === 'all') return tasks;
-    return tasks.filter((task) => task.status === filter);
+  // Get available tags
+  const availableTags = getAllTags(tasks);
+
+  // Process tasks (search, filter, sort)
+  const filteredAndSortedTasks = processTaskList(
+    tasks,
+    searchQuery,
+    useRegex,
+    {
+      categories: selectedCategories,
+      priorities: selectedPriorities,
+      statuses: selectedStatuses,
+      tags: selectedTags,
+    },
+    sortBy,
+    sortDirection
+  );
+
+  // Filter handlers
+  const handleCategoryToggle = (category: TaskCategory) => {
+    setSelectedCategories((prev) =>
+      prev.includes(category) ? prev.filter((c) => c !== category) : [...prev, category]
+    );
   };
 
-  // Sort tasks
-  const getSortedTasks = (tasksToSort: Task[]): Task[] => {
-    const sorted = [...tasksToSort];
-
-    switch (sortBy) {
-      case 'priority':
-        const priorityOrder: Record<TaskPriority, number> = {
-          high: 0,
-          medium: 1,
-          low: 2,
-        };
-        return sorted.sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
-
-      case 'category':
-        return sorted.sort((a, b) => a.category.localeCompare(b.category));
-
-      case 'date':
-      default:
-        return sorted.sort(
-          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-        );
-    }
+  const handlePriorityToggle = (priority: TaskPriority) => {
+    setSelectedPriorities((prev) =>
+      prev.includes(priority) ? prev.filter((p) => p !== priority) : [...prev, priority]
+    );
   };
 
-  const filteredAndSortedTasks = getSortedTasks(getFilteredTasks());
+  const handleStatusToggle = (status: TaskStatus) => {
+    setSelectedStatuses((prev) =>
+      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
+    );
+  };
+
+  const handleTagToggle = (tag: string) => {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]
+    );
+  };
+
+  const handleClearAllFilters = () => {
+    setSelectedCategories([]);
+    setSelectedPriorities([]);
+    setSelectedStatuses([]);
+    setSelectedTags([]);
+  };
+
+  const hasActiveFilters =
+    selectedCategories.length > 0 ||
+    selectedPriorities.length > 0 ||
+    selectedStatuses.length > 0 ||
+    selectedTags.length > 0;
+
+  // Command palette commands
+  const commands: Command[] = [
+    // Task actions
+    {
+      id: 'new-task',
+      label: 'Create New Task',
+      description: 'Open task form to create a new task',
+      category: 'task',
+      icon: '➕',
+      action: () => setShowTaskForm(true),
+    },
+    {
+      id: 'refresh-tasks',
+      label: 'Refresh Tasks',
+      description: 'Reload all tasks from storage',
+      category: 'task',
+      icon: '🔄',
+      action: () => onRefresh(),
+    },
+    // View actions
+    {
+      id: 'toggle-filters',
+      label: showFilters ? 'Hide Filters' : 'Show Filters',
+      description: 'Toggle filter panel visibility',
+      category: 'view',
+      icon: '🔍',
+      action: () => setShowFilters(!showFilters),
+    },
+    {
+      id: 'clear-search',
+      label: 'Clear Search',
+      description: 'Clear search query',
+      category: 'view',
+      icon: '✕',
+      action: () => setSearchQuery(''),
+    },
+    {
+      id: 'toggle-regex',
+      label: useRegex ? 'Disable Regex' : 'Enable Regex',
+      description: 'Toggle regex search mode',
+      category: 'view',
+      icon: '.*',
+      action: () => setUseRegex(!useRegex),
+    },
+    // Filter actions
+    {
+      id: 'clear-filters',
+      label: 'Clear All Filters',
+      description: 'Remove all active filters',
+      category: 'filter',
+      icon: '🗑',
+      action: handleClearAllFilters,
+    },
+    {
+      id: 'filter-high-priority',
+      label: 'Filter High Priority',
+      description: 'Show only high priority tasks',
+      category: 'filter',
+      icon: '⚡',
+      action: () => setSelectedPriorities(['high']),
+    },
+    {
+      id: 'filter-in-progress',
+      label: 'Filter In Progress',
+      description: 'Show only in-progress tasks',
+      category: 'filter',
+      icon: '🔄',
+      action: () => setSelectedStatuses(['in-progress']),
+    },
+    {
+      id: 'filter-pending',
+      label: 'Filter Pending',
+      description: 'Show only pending tasks',
+      category: 'filter',
+      icon: '⏳',
+      action: () => setSelectedStatuses(['pending']),
+    },
+    // Sort actions
+    {
+      id: 'sort-priority',
+      label: 'Sort by Priority',
+      description: 'Sort tasks by priority level',
+      category: 'view',
+      icon: '⚡',
+      action: () => setSortBy('priority'),
+    },
+    {
+      id: 'sort-date',
+      label: 'Sort by Date',
+      description: 'Sort tasks by due date',
+      category: 'view',
+      icon: '📅',
+      action: () => setSortBy('date'),
+    },
+    {
+      id: 'sort-status',
+      label: 'Sort by Status',
+      description: 'Sort tasks by completion status',
+      category: 'view',
+      icon: '📊',
+      action: () => setSortBy('status'),
+    },
+    {
+      id: 'toggle-sort-direction',
+      label: 'Toggle Sort Direction',
+      description: sortDirection === 'asc' ? 'Sort descending' : 'Sort ascending',
+      category: 'view',
+      icon: sortDirection === 'asc' ? '↓' : '↑',
+      action: () => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc')),
+    },
+  ];
 
   // Handle task actions
   const handleToggleComplete = async (taskId: string) => {
@@ -108,31 +275,16 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
     }
   };
 
-  // Filter buttons
-  const filters: { label: string; value: FilterType }[] = [
-    { label: 'all', value: 'all' },
-    { label: 'pending', value: 'pending' },
-    { label: 'in-progress', value: 'in-progress' },
-    { label: 'completed', value: 'completed' },
-  ];
-
-  // Sort buttons
-  const sortOptions: { label: string; value: SortType }[] = [
-    { label: 'date', value: 'date' },
-    { label: 'priority', value: 'priority' },
-    { label: 'category', value: 'category' },
-  ];
-
   // Empty state
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Text style={styles.emptyIcon}>📋</Text>
-      <Text style={styles.emptyTitle}>$ ls -la /tasks/{filter}</Text>
+      <Text style={styles.emptyTitle}>$ ls -la /tasks/</Text>
       <Text style={styles.emptyText}>// No tasks found</Text>
       <Text style={styles.emptyHint}>
-        {filter === 'all'
-          ? 'Create your first task to get started'
-          : `No ${filter} tasks at the moment`}
+        {searchQuery || hasActiveFilters
+          ? 'Try adjusting your search or filters'
+          : 'Create your first task to get started'}
       </Text>
     </View>
   );
@@ -165,55 +317,67 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
           </Text>
 
           {/* Task count */}
-          <Text style={styles.count}>$ wc -l /tasks → {filteredAndSortedTasks.length} tasks</Text>
+          <Text style={styles.count}>
+            $ wc -l /tasks → {filteredAndSortedTasks.length}/{tasks.length} tasks
+          </Text>
         </View>
 
-        {/* Filter row */}
-        <View style={styles.filterRow}>
-          <Text style={styles.filterLabel}>$ grep --status=</Text>
-          <View style={styles.filterButtons}>
-            {filters.map((item) => (
-              <TouchableOpacity
-                key={item.value}
-                style={[styles.filterButton, filter === item.value && styles.filterButtonActive]}
-                onPress={() => setFilter(item.value)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterButtonText,
-                    filter === item.value && styles.filterButtonTextActive,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
+        {/* Search and Controls */}
+        <View style={styles.controlsContainer}>
+          <SearchBar
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onClear={() => setSearchQuery('')}
+            regexEnabled={useRegex}
+            onToggleRegex={() => setUseRegex(!useRegex)}
+          />
 
-        {/* Sort row */}
-        <View style={styles.sortRow}>
-          <Text style={styles.sortLabel}>$ sort --by=</Text>
-          <View style={styles.sortButtons}>
-            {sortOptions.map((item) => (
-              <TouchableOpacity
-                key={item.value}
-                style={[styles.sortButton, sortBy === item.value && styles.sortButtonActive]}
-                onPress={() => setSortBy(item.value)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.sortButtonText,
-                    sortBy === item.value && styles.sortButtonTextActive,
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
+          <View style={styles.actionRow}>
+            <TouchableOpacity
+              style={[styles.actionButton, showFilters && styles.actionButtonActive]}
+              onPress={() => setShowFilters(!showFilters)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.actionButtonText, showFilters && styles.actionButtonTextActive]}>
+                🔍{' '}
+                {hasActiveFilters
+                  ? `Filters (${selectedCategories.length + selectedPriorities.length + selectedStatuses.length + selectedTags.length})`
+                  : 'Filters'}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => setShowCommandPalette(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.actionButtonText}>⌘ Commands</Text>
+            </TouchableOpacity>
           </View>
+
+          {/* Sort Selector */}
+          <SortSelector
+            selectedSort={sortBy}
+            sortDirection={sortDirection}
+            onSortChange={setSortBy}
+            onDirectionToggle={() => setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'))}
+          />
+
+          {/* Filter Panel */}
+          {showFilters && (
+            <FilterPanel
+              selectedCategories={selectedCategories}
+              selectedPriorities={selectedPriorities}
+              selectedStatuses={selectedStatuses}
+              selectedTags={selectedTags}
+              availableTags={availableTags}
+              onCategoryToggle={handleCategoryToggle}
+              onPriorityToggle={handlePriorityToggle}
+              onStatusToggle={handleStatusToggle}
+              onTagToggle={handleTagToggle}
+              onClearAll={handleClearAllFilters}
+            />
+          )}
         </View>
 
         {/* Task list */}
@@ -245,9 +409,19 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
       <TouchableOpacity
         style={styles.fab}
         onPress={() => setShowTaskForm(true)}
+        onLongPress={() => setShowCommandPalette(true)}
         activeOpacity={0.8}
       >
         <Text style={styles.fabText}>$ touch new-task.json</Text>
+      </TouchableOpacity>
+
+      {/* Command Palette FAB - Mobile friendly */}
+      <TouchableOpacity
+        style={styles.commandFab}
+        onPress={() => setShowCommandPalette(true)}
+        activeOpacity={0.8}
+      >
+        <Text style={styles.commandFabText}>⌘</Text>
       </TouchableOpacity>
 
       {/* Task Form Modal */}
@@ -259,6 +433,13 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
       >
         <TaskFormScreen onClose={() => setShowTaskForm(false)} />
       </Modal>
+
+      {/* Command Palette */}
+      <CommandPalette
+        visible={showCommandPalette}
+        onClose={() => setShowCommandPalette(false)}
+        commands={commands}
+      />
     </>
   );
 };
@@ -289,85 +470,37 @@ const styles = StyleSheet.create({
     color: Theme.colors.comment,
     marginTop: Theme.spacing.xs,
   },
-  filterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  controlsContainer: {
     paddingHorizontal: Theme.layout.screenPadding,
-    paddingVertical: Theme.spacing.sm,
-    backgroundColor: Theme.colors.surface,
+    paddingVertical: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: Theme.colors.border,
   },
-  filterLabel: {
-    fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.comment,
-    marginRight: Theme.spacing.sm,
-  },
-  filterButtons: {
+  actionRow: {
     flexDirection: 'row',
-    gap: Theme.spacing.xs,
-    flex: 1,
-    flexWrap: 'wrap',
+    gap: Theme.spacing.sm,
+    marginBottom: Theme.spacing.md,
   },
-  filterButton: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.background,
+  actionButton: {
+    paddingHorizontal: Theme.spacing.md,
+    paddingVertical: Theme.spacing.sm,
+    backgroundColor: Theme.colors.surface,
     borderWidth: 1,
     borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.sm,
   },
-  filterButtonActive: {
-    backgroundColor: Theme.colors.primary + '30',
+  actionButtonActive: {
+    backgroundColor: Theme.colors.primary + '20',
     borderColor: Theme.colors.primary,
   },
-  filterButtonText: {
+  actionButtonText: {
     fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.xs,
+    fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.textSecondary,
   },
-  filterButtonTextActive: {
+  actionButtonTextActive: {
     color: Theme.colors.primary,
-  },
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: Theme.layout.screenPadding,
-    paddingVertical: Theme.spacing.sm,
-    backgroundColor: Theme.colors.surface,
-    borderBottomWidth: 1,
-    borderBottomColor: Theme.colors.border,
-  },
-  sortLabel: {
-    fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.comment,
-    marginRight: Theme.spacing.sm,
-  },
-  sortButtons: {
-    flexDirection: 'row',
-    gap: Theme.spacing.xs,
-  },
-  sortButton: {
-    paddingHorizontal: Theme.spacing.sm,
-    paddingVertical: Theme.spacing.xs,
-    borderRadius: Theme.borderRadius.sm,
-    backgroundColor: Theme.colors.background,
-    borderWidth: 1,
-    borderColor: Theme.colors.border,
-  },
-  sortButtonActive: {
-    backgroundColor: Theme.colors.function + '30',
-    borderColor: Theme.colors.function,
-  },
-  sortButtonText: {
-    fontFamily: Theme.typography.fontFamily.mono,
-    fontSize: Theme.typography.fontSize.xs,
-    color: Theme.colors.textSecondary,
-  },
-  sortButtonTextActive: {
-    color: Theme.colors.function,
   },
   listContent: {
     paddingTop: Theme.spacing.md,
@@ -433,5 +566,25 @@ const styles = StyleSheet.create({
     fontSize: Theme.typography.fontSize.sm,
     color: Theme.colors.background,
     fontWeight: '600',
+  },
+  commandFab: {
+    position: 'absolute',
+    bottom: Theme.spacing.xl + 60,
+    right: Theme.spacing.lg,
+    backgroundColor: Theme.colors.keyword,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  commandFabText: {
+    fontSize: 24,
+    color: Theme.colors.background,
   },
 });
