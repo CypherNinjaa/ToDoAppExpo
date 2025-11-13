@@ -9,3 +9,5 @@ export type {
   UserSettings,
   AppData,
 } from './task.types';
+
+export type { TrackedFile, FileCategory, FileFilter } from './file.types';

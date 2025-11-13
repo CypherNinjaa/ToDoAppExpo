@@ -6,3 +6,4 @@ export { WelcomeScreen } from './WelcomeScreen';
 export { SplashScreen } from './SplashScreen';
 export { TaskFormScreen } from './TaskFormScreen';
 export { ExportImportScreen } from './ExportImportScreen';
+export { FilesScreen } from './FilesScreen';

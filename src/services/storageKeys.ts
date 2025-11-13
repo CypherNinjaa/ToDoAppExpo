@@ -7,6 +7,7 @@ export const StorageKeys = {
   SETTINGS: '@devtodo:settings',
   USERNAME: '@devtodo:username',
   THEME: '@devtodo:theme',
+  FILES: '@devtodo:files', // Added for file management
 
   // Metadata
   LAST_SYNC: '@devtodo:last_sync',

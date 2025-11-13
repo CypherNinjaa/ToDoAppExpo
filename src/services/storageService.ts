@@ -638,4 +638,39 @@ export class StorageService {
       throw new StorageError('Failed to get storage info', 'INFO_ERROR');
     }
   }
+
+  // ==================== FILE MANAGEMENT ====================
+
+  /**
+   * Get all tracked files
+   */
+  static async getFiles(): Promise<any[]> {
+    try {
+      const filesJson = await AsyncStorage.getItem(StorageKeys.FILES);
+      if (!filesJson) return [];
+
+      const files = JSON.parse(filesJson);
+
+      // Parse dates
+      return files.map((file: any) => ({
+        ...file,
+        addedAt: new Date(file.addedAt),
+        lastAccessed: file.lastAccessed ? new Date(file.lastAccessed) : undefined,
+      }));
+    } catch (error) {
+      throw new StorageError('Failed to get files', 'FILE_READ_ERROR');
+    }
+  }
+
+  /**
+   * Save files array to storage
+   */
+  static async saveFiles(files: any[]): Promise<void> {
+    try {
+      const filesJson = JSON.stringify(files);
+      await AsyncStorage.setItem(StorageKeys.FILES, filesJson);
+    } catch (error) {
+      throw new StorageError('Failed to save files', 'FILE_WRITE_ERROR');
+    }
+  }
 }

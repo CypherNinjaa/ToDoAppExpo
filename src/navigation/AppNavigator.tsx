@@ -1,10 +1,16 @@
 import React, { useState, useRef } from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
-import { DashboardScreen, TasksScreen, CalendarScreen, SettingsScreen } from '../screens';
+import {
+  DashboardScreen,
+  TasksScreen,
+  CalendarScreen,
+  SettingsScreen,
+  FilesScreen,
+} from '../screens';
 import { Theme } from '../constants';
 
-type TabName = 'Dashboard' | 'Tasks' | 'Calendar' | 'Settings';
+type TabName = 'Dashboard' | 'Tasks' | 'Files' | 'Calendar' | 'Settings';
 
 interface Tab {
   name: TabName;
@@ -18,7 +24,7 @@ interface Tab {
 const tabs: Tab[] = [
   {
     name: 'Dashboard',
-    label: '~/dashboard',
+    label: '~/dash',
     icon: '▣',
     color: Theme.colors.keyword,
     lottieSource: require('../../assets/icons8-home.json'),
@@ -33,8 +39,16 @@ const tabs: Tab[] = [
     component: TasksScreen,
   },
   {
+    name: 'Files',
+    label: '~/files',
+    icon: '📁',
+    color: Theme.colors.warning,
+    lottieSource: require('../../assets/icons8-open-archive.json'),
+    component: FilesScreen,
+  },
+  {
     name: 'Calendar',
-    label: '~/calendar',
+    label: '~/cal',
     icon: '◷',
     color: Theme.colors.function,
     lottieSource: require('../../assets/icons8-calendar.json'),
@@ -42,7 +56,7 @@ const tabs: Tab[] = [
   },
   {
     name: 'Settings',
-    label: '~/settings',
+    label: '~/set',
     icon: '⚙',
     color: Theme.colors.variable,
     lottieSource: require('../../assets/icons8-laptop-settings.json'),
