@@ -12,9 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
-import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import * as IntentLauncher from 'expo-intent-launcher';
 import { Ionicons } from 'expo-vector-icons';
 import { Theme, CommonStyles } from '../constants';
 import { useFileStore, useTaskStore } from '../stores';
@@ -240,46 +238,25 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
   const handleOpenFile = async (file: TrackedFile) => {
     try {
-      // Update access count in state immediately
-      const updatedFiles = files.map((f) =>
-        f.id === file.id ? { ...f, accessCount: f.accessCount + 1, lastAccessed: new Date() } : f
-      );
-
-      // Update UI immediately (optimistic update)
+      // Update access count immediately (optimistic update)
       await incrementAccessCount(file.id);
 
-      // For Android, use FileSystem.getContentUriAsync to get proper content URI
-      if (Platform.OS === 'android') {
-        try {
-          // Get content URI that can be shared with other apps
-          const contentUri = await FileSystem.getContentUriAsync(file.uri);
+      // Use Sharing API to open files on both Android and iOS
+      const isAvailable = await Sharing.isAvailableAsync();
 
-          // Open file with Intent Launcher
-          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
-            data: contentUri,
-            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
-            type: file.mimeType || '*/*',
-          });
-        } catch (intentError) {
-          console.error('Intent launcher error:', intentError);
-          // Fallback to sharing if intent fails
-          const isAvailable = await Sharing.isAvailableAsync();
-          if (isAvailable) {
-            await Sharing.shareAsync(file.uri, {
-              mimeType: file.mimeType,
-              UTI: file.mimeType,
-            });
-          } else {
-            Alert.alert('Error', 'Cannot open this file type on this device');
-          }
-        }
+      if (isAvailable) {
+        // Share the file which will show "Open with..." dialog
+        await Sharing.shareAsync(file.uri, {
+          mimeType: file.mimeType || '*/*',
+          UTI: file.mimeType,
+        });
       } else {
-        // For iOS, use Linking
+        // Fallback to Linking for platforms where Sharing is not available
         const canOpen = await Linking.canOpenURL(file.uri);
         if (canOpen) {
           await Linking.openURL(file.uri);
         } else {
-          Alert.alert('Error', 'Cannot open this file type');
+          Alert.alert('Error', 'Cannot open this file type on this device');
         }
       }
     } catch (error) {
