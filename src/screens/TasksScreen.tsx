@@ -38,10 +38,12 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
   const isLoading = useTaskStore((state) => state.isLoading);
   const loadTasks = useTaskStore((state) => state.loadTasks);
   const toggleTaskComplete = useTaskStore((state) => state.toggleTaskComplete);
+  const toggleSubtask = useTaskStore((state) => state.toggleSubtask);
   const deleteTask = useTaskStore((state) => state.deleteTask);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
+  const [editingTaskId, setEditingTaskId] = useState<string | undefined>(undefined);
   const [showFilters, setShowFilters] = useState(false);
   const [showCommandPalette, setShowCommandPalette] = useState(false);
 
@@ -275,6 +277,16 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
     }
   };
 
+  const handleEditTask = (taskId: string) => {
+    setEditingTaskId(taskId);
+    setShowTaskForm(true);
+  };
+
+  const handleCloseTaskForm = () => {
+    setShowTaskForm(false);
+    setEditingTaskId(undefined);
+  };
+
   // Empty state
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
@@ -387,7 +399,10 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
           renderItem={({ item }) => (
             <TaskCard
               task={item}
+              username={username}
+              onPress={() => handleEditTask(item.id)}
               onToggleComplete={() => handleToggleComplete(item.id)}
+              onToggleSubtask={(subtaskId) => toggleSubtask(item.id, subtaskId)}
               onDelete={() => handleDeleteTask(item.id)}
             />
           )}
@@ -428,10 +443,10 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
       <Modal
         visible={showTaskForm}
         animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={() => setShowTaskForm(false)}
+        presentationStyle="fullScreen"
+        onRequestClose={handleCloseTaskForm}
       >
-        <TaskFormScreen onClose={() => setShowTaskForm(false)} />
+        <TaskFormScreen taskId={editingTaskId} onClose={handleCloseTaskForm} />
       </Modal>
 
       {/* Command Palette */}

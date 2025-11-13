@@ -66,7 +66,7 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
           contentContainerStyle={styles.scrollContent}
         >
           {/* Terminal Header */}
-          <TerminalHeader />
+          <TerminalHeader username={username} />
 
           {/* Pomodoro Timer */}
           <PomodoroTimer />

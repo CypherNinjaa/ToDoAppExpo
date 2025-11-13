@@ -8,8 +8,10 @@ import { Theme } from '../../constants';
 
 interface TaskCardProps {
   task: Task;
+  username?: string;
   onPress?: () => void;
   onToggleComplete?: () => void;
+  onToggleSubtask?: (subtaskId: string) => void;
   onDelete?: () => void;
 }
 
@@ -17,8 +19,10 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 
 export const TaskCard: React.FC<TaskCardProps> = ({
   task,
+  username = 'user',
   onPress,
   onToggleComplete,
+  onToggleSubtask,
   onDelete,
 }) => {
   const scaleAnim = useRef(new Animated.Value(1)).current;
@@ -234,7 +238,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             {/* Terminal-style header */}
             <View style={styles.header}>
               <Text style={[styles.permissions, { color: priorityColor }]}>-rw-r--r--</Text>
-              <Text style={styles.user}>1 user</Text>
+              <Text style={styles.user}>1 {username}</Text>
               <Text style={[styles.priority, { color: priorityColor }]}>
                 {task.priority.toUpperCase()}
               </Text>
@@ -248,6 +252,56 @@ export const TaskCard: React.FC<TaskCardProps> = ({
             >
               "{task.title}"
             </Text>
+
+            {/* Description */}
+            {task.description && (
+              <Text style={styles.description} numberOfLines={3}>
+                // {task.description}
+              </Text>
+            )}
+
+            {/* Subtasks list */}
+            {task.subtasks && task.subtasks.length > 0 && (
+              <View style={styles.subtasksList}>
+                {task.subtasks.map((subtask) => (
+                  <TouchableOpacity
+                    key={subtask.id}
+                    style={styles.subtaskRow}
+                    onPress={() => onToggleSubtask?.(subtask.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.subtaskCheckbox}>{subtask.completed ? '☑' : '☐'}</Text>
+                    <Text
+                      style={[styles.subtaskText, subtask.completed && styles.subtaskCompleted]}
+                      numberOfLines={1}
+                    >
+                      {subtask.title}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+
+            {/* Code snippet preview */}
+            {task.codeSnippet && (
+              <View style={styles.codeBlock}>
+                <Text style={styles.codeLanguage}>// {task.codeSnippet.language}</Text>
+                <Text style={styles.codePreview} numberOfLines={3}>
+                  {task.codeSnippet.code}
+                </Text>
+              </View>
+            )}
+
+            {/* Links */}
+            {task.links && task.links.length > 0 && (
+              <View style={styles.linksContainer}>
+                {task.links.map((link, index) => (
+                  <Text key={index} style={styles.linkText} numberOfLines={1}>
+                    🔗 {link}
+                  </Text>
+                ))}
+              </View>
+            )}
 
             {/* Task metadata */}
             <View style={styles.metadata}>
@@ -376,6 +430,75 @@ const styles = StyleSheet.create({
   titleCompleted: {
     textDecorationLine: 'line-through',
     color: Theme.colors.textDisabled,
+  },
+  description: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.comment,
+    marginBottom: Theme.spacing.sm,
+    lineHeight: Theme.typography.fontSize.sm * 1.4,
+  },
+  subtasksList: {
+    marginVertical: Theme.spacing.sm,
+    paddingLeft: Theme.spacing.sm,
+  },
+  subtaskRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: Theme.spacing.xs,
+    paddingVertical: Theme.spacing.sm,
+    paddingHorizontal: Theme.spacing.md,
+    backgroundColor: Theme.colors.background,
+    borderRadius: Theme.borderRadius.sm,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    minHeight: 44, // Minimum touch target size
+  },
+  subtaskCheckbox: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: 20, // Increased from sm for better visibility
+    color: Theme.colors.success,
+    marginRight: Theme.spacing.sm,
+    minWidth: 24, // Ensure checkbox has minimum width
+  },
+  subtaskText: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.sm,
+    color: Theme.colors.textPrimary,
+    flex: 1,
+  },
+  subtaskCompleted: {
+    textDecorationLine: 'line-through',
+    color: Theme.colors.textDisabled,
+  },
+  codeBlock: {
+    backgroundColor: Theme.colors.background,
+    borderRadius: Theme.borderRadius.sm,
+    padding: Theme.spacing.sm,
+    marginBottom: Theme.spacing.sm,
+    borderLeftWidth: 3,
+    borderLeftColor: Theme.colors.keyword,
+  },
+  codeLanguage: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.comment,
+    marginBottom: Theme.spacing.xs,
+  },
+  codePreview: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.string,
+    lineHeight: Theme.typography.fontSize.xs * 1.5,
+  },
+  linksContainer: {
+    marginBottom: Theme.spacing.sm,
+  },
+  linkText: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: Theme.typography.fontSize.xs,
+    color: Theme.colors.function,
+    marginBottom: Theme.spacing.xs,
   },
   metadata: {
     flexDirection: 'row',

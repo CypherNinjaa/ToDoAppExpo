@@ -5,7 +5,11 @@ import { View, Text, StyleSheet } from 'react-native';
 import { Theme } from '../../constants';
 import { useTaskStore } from '../../stores';
 
-export const TerminalHeader: React.FC = () => {
+interface TerminalHeaderProps {
+  username?: string;
+}
+
+export const TerminalHeader: React.FC<TerminalHeaderProps> = ({ username = 'user' }) => {
   const tasks = useTaskStore((state) => state.tasks);
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -62,7 +66,7 @@ export const TerminalHeader: React.FC = () => {
     <View style={styles.container}>
       {/* Terminal prompt */}
       <View style={styles.promptRow}>
-        <Text style={styles.user}>user</Text>
+        <Text style={styles.user}>{username}</Text>
         <Text style={styles.at}>@</Text>
         <Text style={styles.host}>devtodo</Text>
         <Text style={styles.separator}>:</Text>

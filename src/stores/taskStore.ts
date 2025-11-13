@@ -17,6 +17,7 @@ interface TaskStore {
   updateTask: (id: string, updates: Partial<Task>) => Promise<void>;
   deleteTask: (id: string) => Promise<void>;
   toggleTaskComplete: (id: string) => Promise<void>;
+  toggleSubtask: (taskId: string, subtaskId: string) => Promise<void>;
 
   // Selectors (computed values)
   getTaskById: (id: string) => Task | undefined;
@@ -161,6 +162,23 @@ export const useTaskStore = create<TaskStore>((set, get) => ({
         error: error instanceof Error ? error.message : 'Failed to toggle task',
         isLoading: false,
       });
+      throw error;
+    }
+  },
+
+  // Toggle subtask completion
+  toggleSubtask: async (taskId: string, subtaskId: string) => {
+    try {
+      const task = get().tasks.find((t) => t.id === taskId);
+      if (!task || !task.subtasks) return;
+
+      const updatedSubtasks = task.subtasks.map((subtask) =>
+        subtask.id === subtaskId ? { ...subtask, completed: !subtask.completed } : subtask
+      );
+
+      await get().updateTask(taskId, { subtasks: updatedSubtasks });
+    } catch (error) {
+      console.error('Failed to toggle subtask:', error);
       throw error;
     }
   },
