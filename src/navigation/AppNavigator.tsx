@@ -1,66 +1,84 @@
-import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { DashboardScreen, TasksScreen, CalendarScreen, SettingsScreen } from '../screens';
 import { Theme } from '../constants';
-import { Platform } from 'react-native';
 
-const Tab = createBottomTabNavigator();
+type TabName = 'Dashboard' | 'Tasks' | 'Calendar' | 'Settings';
+
+interface Tab {
+  name: TabName;
+  label: string;
+  component: React.ComponentType;
+}
+
+const tabs: Tab[] = [
+  { name: 'Dashboard', label: '~/dashboard', component: DashboardScreen },
+  { name: 'Tasks', label: '~/tasks', component: TasksScreen },
+  { name: 'Calendar', label: '~/calendar', component: CalendarScreen },
+  { name: 'Settings', label: '~/settings', component: SettingsScreen },
+];
 
 export const AppNavigator = () => {
+  const [activeTab, setActiveTab] = useState<TabName>('Dashboard');
+
+  const ActiveScreen = tabs.find((tab) => tab.name === activeTab)?.component || DashboardScreen;
+
   return (
-    <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarStyle: {
-            backgroundColor: Theme.colors.surface,
-            borderTopWidth: 1,
-            borderTopColor: Theme.colors.border,
-            height: Platform.OS === 'ios' ? 88 : 68,
-            paddingBottom: Platform.OS === 'ios' ? 24 : 8,
-            paddingTop: 8,
-          },
-          tabBarLabelStyle: {
-            fontFamily: Theme.typography.fontFamily.mono,
-            fontSize: Theme.typography.fontSize.xs,
-            fontWeight: Theme.typography.fontWeight.semibold,
-            color: Theme.colors.textPrimary,
-          },
-          tabBarItemStyle: {
-            paddingVertical: 4,
-          },
-        }}
-      >
-        <Tab.Screen
-          name="Dashboard"
-          component={DashboardScreen}
-          options={{
-            tabBarLabel: '~/dashboard',
-          }}
-        />
-        <Tab.Screen
-          name="Tasks"
-          component={TasksScreen}
-          options={{
-            tabBarLabel: '~/tasks',
-          }}
-        />
-        <Tab.Screen
-          name="Calendar"
-          component={CalendarScreen}
-          options={{
-            tabBarLabel: '~/calendar',
-          }}
-        />
-        <Tab.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{
-            tabBarLabel: '~/settings',
-          }}
-        />
-      </Tab.Navigator>
-    </NavigationContainer>
+    <View style={styles.container}>
+      {/* Screen Content */}
+      <View style={styles.screenContainer}>
+        <ActiveScreen />
+      </View>
+
+      {/* Custom Tab Bar */}
+      <View style={styles.tabBar}>
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.name;
+          return (
+            <TouchableOpacity
+              key={tab.name}
+              style={styles.tabButton}
+              onPress={() => setActiveTab(tab.name)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  screenContainer: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    backgroundColor: Theme.colors.surface,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    height: 68,
+    paddingBottom: 8,
+    paddingTop: 8,
+  },
+  tabButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  tabLabel: {
+    fontFamily: Theme.typography.fontFamily.mono,
+    fontSize: 10,
+    color: Theme.colors.textSecondary,
+  },
+  tabLabelActive: {
+    color: Theme.colors.primary,
+  },
+});
