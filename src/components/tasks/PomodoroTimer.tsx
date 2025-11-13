@@ -1,7 +1,9 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Modal } from 'react-native';
 import { useTimerStore } from '../../stores/timerStore';
 import { useThemeStore } from '../../stores/themeStore';
+import { useSettingsStore } from '../../stores/settingsStore';
+import { TimerSettings } from '../inputs/TimerSettings';
 
 const { width } = Dimensions.get('window');
 
@@ -9,6 +11,10 @@ export const PomodoroTimer: React.FC = () => {
   const currentTheme = useThemeStore((state) => state.currentTheme);
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
+
+  const settings = useSettingsStore((state) => state.settings);
+
+  const [showSettings, setShowSettings] = useState(false);
 
   const {
     type,
@@ -22,9 +28,13 @@ export const PomodoroTimer: React.FC = () => {
     tick,
     switchToBreak,
     switchToFocus,
+    initializeFromSettings,
   } = useTimerStore();
 
-  // Countdown interval effect
+  // Initialize timer from settings on mount
+  useEffect(() => {
+    initializeFromSettings(settings.focusDuration, settings.breakDuration);
+  }, [settings.focusDuration, settings.breakDuration, initializeFromSettings]); // Countdown interval effect
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
 
@@ -72,108 +82,145 @@ export const PomodoroTimer: React.FC = () => {
   };
 
   return (
-    <View
-      style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border }]}
-    >
-      {/* Debug mode header */}
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
-        <Text style={[styles.headerText, { color: theme.textPrimary }]}>
-          {`// DEBUG MODE: Pomodoro Timer`}
-        </Text>
-        <Text style={[styles.sessionInfo, { color: theme.textSecondary }]}>
-          {`/* Sessions: ${completedPomodoros} */`}
-        </Text>
-      </View>
-
-      {/* Timer mode indicator */}
-      <View style={styles.modeContainer}>
-        <Text style={[styles.modeText, { color: type === 'focus' ? theme.error : theme.success }]}>
-          {type === 'focus' ? '>> FOCUS_MODE' : '>> BREAK_MODE'}
-        </Text>
-      </View>
-
-      {/* Timer display */}
-      <View style={styles.timerDisplay}>
-        <Text style={[styles.timeText, { color: theme.primary }]}>{formatTime(remainingTime)}</Text>
-        <Text style={[styles.statusText, { color: theme.textSecondary }]}>
-          {`status: "${status}"`}
-        </Text>
-      </View>
-
-      {/* Progress bar */}
-      <View style={[styles.progressBarContainer, { backgroundColor: theme.border }]}>
-        <View
-          style={[
-            styles.progressBar,
-            {
-              width: `${progress}%`,
-              backgroundColor: type === 'focus' ? theme.error : theme.success,
-            },
-          ]}
-        />
-      </View>
-      <Text style={[styles.progressText, { color: theme.textSecondary }]}>
-        {`progress: ${progress.toFixed(1)}%`}
-      </Text>
-
-      {/* Control buttons */}
-      <View style={styles.controlsContainer}>
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            { backgroundColor: theme.background, borderColor: theme.primary },
-          ]}
-          onPress={handleStartPause}
-        >
-          <Text style={[styles.controlButtonText, { color: theme.primary }]}>
-            {status === 'running' ? '$ pause' : '$ start'}
+    <>
+      <View
+        style={[styles.container, { backgroundColor: theme.background, borderColor: theme.border }]}
+      >
+        {/* Debug mode header */}
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
+          <Text style={[styles.headerText, { color: theme.textPrimary }]}>
+            {`// DEBUG MODE: Pomodoro Timer`}
           </Text>
-        </TouchableOpacity>
+          <View style={styles.headerRight}>
+            <Text style={[styles.sessionInfo, { color: theme.textSecondary }]}>
+              {`/* Sessions: ${completedPomodoros} */`}
+            </Text>
+            <TouchableOpacity
+              style={[styles.settingsButton, { borderColor: theme.border }]}
+              onPress={() => setShowSettings(true)}
+            >
+              <Text style={[styles.settingsIcon, { color: theme.textSecondary }]}>⚙</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            { backgroundColor: theme.background, borderColor: theme.error },
-          ]}
-          onPress={handleStop}
-          disabled={status === 'idle'}
-        >
+        {/* Timer mode indicator */}
+        <View style={styles.modeContainer}>
           <Text
-            style={[
-              styles.controlButtonText,
-              { color: status === 'idle' ? theme.textSecondary : theme.error },
-            ]}
+            style={[styles.modeText, { color: type === 'focus' ? theme.error : theme.success }]}
           >
-            {'$ stop'}
+            {type === 'focus' ? '>> FOCUS_MODE' : '>> BREAK_MODE'}
           </Text>
-        </TouchableOpacity>
+        </View>
 
-        <TouchableOpacity
-          style={[
-            styles.controlButton,
-            { backgroundColor: theme.background, borderColor: theme.warning },
-          ]}
-          onPress={handleSwitchMode}
-          disabled={status === 'running'}
-        >
-          <Text
+        {/* Timer display */}
+        <View style={styles.timerDisplay}>
+          <Text style={[styles.timeText, { color: theme.primary }]}>
+            {formatTime(remainingTime)}
+          </Text>
+          <Text style={[styles.statusText, { color: theme.textSecondary }]}>
+            {`status: "${status}"`}
+          </Text>
+        </View>
+
+        {/* Progress bar */}
+        <View style={[styles.progressBarContainer, { backgroundColor: theme.border }]}>
+          <View
             style={[
-              styles.controlButtonText,
-              { color: status === 'running' ? theme.textSecondary : theme.warning },
+              styles.progressBar,
+              {
+                width: `${progress}%`,
+                backgroundColor: type === 'focus' ? theme.error : theme.success,
+              },
             ]}
-          >
-            {type === 'focus' ? '$ break' : '$ focus'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-
-      {/* Debug footer */}
-      <View style={styles.footer}>
-        <Text style={[styles.footerText, { color: theme.textSecondary }]}>
-          {`// totalTime: ${totalTime}s | remaining: ${remainingTime}s`}
+          />
+        </View>
+        <Text style={[styles.progressText, { color: theme.textSecondary }]}>
+          {`progress: ${progress.toFixed(1)}%`}
         </Text>
+
+        {/* Control buttons */}
+        <View style={styles.controlsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              { backgroundColor: theme.background, borderColor: theme.primary },
+            ]}
+            onPress={handleStartPause}
+          >
+            <Text style={[styles.controlButtonText, { color: theme.primary }]}>
+              {status === 'running' ? '$ pause' : '$ start'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              { backgroundColor: theme.background, borderColor: theme.error },
+            ]}
+            onPress={handleStop}
+            disabled={status === 'idle'}
+          >
+            <Text
+              style={[
+                styles.controlButtonText,
+                { color: status === 'idle' ? theme.textSecondary : theme.error },
+              ]}
+            >
+              {'$ stop'}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.controlButton,
+              { backgroundColor: theme.background, borderColor: theme.warning },
+            ]}
+            onPress={handleSwitchMode}
+            disabled={status === 'running'}
+          >
+            <Text
+              style={[
+                styles.controlButtonText,
+                { color: status === 'running' ? theme.textSecondary : theme.warning },
+              ]}
+            >
+              {type === 'focus' ? '$ break' : '$ focus'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Debug footer */}
+        <View style={styles.footer}>
+          <Text style={[styles.footerText, { color: theme.textSecondary }]}>
+            {`// totalTime: ${totalTime}s | remaining: ${remainingTime}s`}
+          </Text>
+        </View>
       </View>
-    </View>
+
+      {/* Timer Settings Modal */}
+      <Modal
+        visible={showSettings}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSettings(false)}
+      >
+        <View style={[styles.modalContainer, { backgroundColor: theme.background }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: theme.border }]}>
+            <Text style={[styles.modalTitle, { color: theme.primary }]}>
+              {'$ ./timer-config.sh'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.closeButton, { borderColor: theme.border }]}
+              onPress={() => setShowSettings(false)}
+            >
+              <Text style={[styles.closeButtonText, { color: theme.textPrimary }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <TimerSettings />
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -196,9 +243,26 @@ const styles = StyleSheet.create({
     fontFamily: 'FiraCode-Regular',
     fontSize: 14,
   },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   sessionInfo: {
     fontFamily: 'FiraCode-Regular',
     fontSize: 12,
+  },
+  settingsButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  settingsIcon: {
+    fontSize: 16,
   },
   modeContainer: {
     marginBottom: 16,
@@ -262,5 +326,33 @@ const styles = StyleSheet.create({
     fontFamily: 'FiraCode-Regular',
     fontSize: 11,
     textAlign: 'center',
+  },
+  modalContainer: {
+    flex: 1,
+    paddingTop: 60,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontFamily: 'FiraCode-Bold',
+    fontSize: 18,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });

@@ -7,6 +7,7 @@ import {
   NotificationSettings,
   DisplaySettings,
   DataManagement,
+  TimerSettings,
 } from '../components/inputs';
 import { useThemeStore } from '../stores/themeStore';
 import {
@@ -118,6 +119,14 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
               // Display Preferences
             </Text>
             <DisplaySettings />
+          </View>
+
+          {/* Timer Settings Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
+              // Pomodoro Timer Settings
+            </Text>
+            <TimerSettings />
           </View>
 
           {/* Data Management Section */}

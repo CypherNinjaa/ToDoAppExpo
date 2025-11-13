@@ -55,6 +55,10 @@ export interface UserSettings {
   // Display preferences
   dateFormat?: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
   use24HourTime?: boolean;
+  // Timer preferences
+  focusDuration?: number; // in seconds
+  breakDuration?: number; // in seconds
+  longBreakInterval?: number; // number of pomodoros before long break
 }
 
 export interface AppData {

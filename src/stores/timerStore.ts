@@ -28,6 +28,7 @@ interface TimerState {
   setFocusDuration: (duration: number) => void;
   setBreakDuration: (duration: number) => void;
   resetTimer: () => void;
+  initializeFromSettings: (focusDuration?: number, breakDuration?: number) => void;
 }
 
 const DEFAULT_FOCUS_DURATION = 25 * 60; // 25 minutes
@@ -136,6 +137,23 @@ export const useTimerStore = create<TimerState>((set, get) => ({
     set({
       status: 'idle',
       remainingTime: state.type === 'focus' ? state.focusDuration : state.breakDuration,
+    });
+  },
+
+  initializeFromSettings: (focusDuration, breakDuration) => {
+    const state = get();
+    const newFocusDuration = focusDuration || DEFAULT_FOCUS_DURATION;
+    const newBreakDuration = breakDuration || DEFAULT_BREAK_DURATION;
+
+    set({
+      focusDuration: newFocusDuration,
+      breakDuration: newBreakDuration,
+      ...(state.type === 'focus' && state.status === 'idle'
+        ? { remainingTime: newFocusDuration, totalTime: newFocusDuration }
+        : {}),
+      ...(state.type === 'break' && state.status === 'idle'
+        ? { remainingTime: newBreakDuration, totalTime: newBreakDuration }
+        : {}),
     });
   },
 }));
