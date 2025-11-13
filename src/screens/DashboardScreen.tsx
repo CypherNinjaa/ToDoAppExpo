@@ -10,6 +10,7 @@ import {
   InProgressTasks,
   QuickActions,
 } from '../components/dashboard';
+import { PomodoroTimer } from '../components/tasks';
 import { TaskFormScreen } from './TaskFormScreen';
 import { Task } from '../types';
 
@@ -50,6 +51,9 @@ export const DashboardScreen: React.FC<DashboardScreenProps> = ({
         >
           {/* Terminal Header */}
           <TerminalHeader />
+
+          {/* Pomodoro Timer */}
+          <PomodoroTimer />
 
           {/* Statistics Card */}
           <StatsCard />

@@ -52,6 +52,9 @@ export interface UserSettings {
   streakNotificationsEnabled?: boolean;
   overdueAlertsEnabled?: boolean;
   upcomingDeadlineHours?: number; // hours before deadline to notify
+  // Display preferences
+  dateFormat?: 'MM/DD/YYYY' | 'DD/MM/YYYY' | 'YYYY-MM-DD';
+  use24HourTime?: boolean;
 }
 
 export interface AppData {

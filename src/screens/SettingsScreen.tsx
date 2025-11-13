@@ -2,7 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import { Theme, CommonStyles } from '../constants';
 import { StorageService } from '../services/storage';
-import { ThemeSelector } from '../components/inputs';
+import {
+  ThemeSelector,
+  NotificationSettings,
+  DisplaySettings,
+  DataManagement,
+} from '../components/inputs';
 import { useThemeStore } from '../stores/themeStore';
 import {
   testNotificationDelivery,
@@ -99,6 +104,28 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
             <ThemeSelector />
           </View>
 
+          {/* Notification Settings Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
+              // Notification Preferences
+            </Text>
+            <NotificationSettings />
+          </View>
+
+          {/* Display Settings Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
+              // Display Preferences
+            </Text>
+            <DisplaySettings />
+          </View>
+
+          {/* Data Management Section */}
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: colors.comment }]}>// Data Management</Text>
+            <DataManagement />
+          </View>
+
           {/* Notification Testing Section */}
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.comment }]}>
@@ -159,25 +186,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
               </Text>
             </TouchableOpacity>
           </View>
-
-          {/* Storage Management Section */}
-          <TouchableOpacity
-            style={[
-              styles.dangerButton,
-              {
-                backgroundColor: colors.error + '20',
-                borderColor: colors.error,
-              },
-            ]}
-            onPress={handleClearStorage}
-          >
-            <Text style={[styles.dangerButtonText, { color: colors.error }]}>
-              $ rm -rf ~/.devtodo
-            </Text>
-            <Text style={[styles.dangerButtonSubtext, { color: colors.comment }]}>
-              // Clear storage & reset app
-            </Text>
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </View>

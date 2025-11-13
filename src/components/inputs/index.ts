@@ -14,5 +14,8 @@ export { FilterPanel } from './FilterPanel';
 export { SortSelector } from './SortSelector';
 export { CommandPalette } from './CommandPalette';
 export { ThemeSelector } from './ThemeSelector';
+export { NotificationSettings } from './NotificationSettings';
+export { DisplaySettings } from './DisplaySettings';
+export { DataManagement } from './DataManagement';
 export type { SortOption, SortDirection } from './SortSelector';
 export type { Command } from './CommandPalette';
