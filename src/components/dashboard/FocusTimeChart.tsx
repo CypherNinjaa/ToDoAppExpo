@@ -20,8 +20,11 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
   const getThemeColors = useThemeStore((state) => state.getThemeColors);
   const theme = getThemeColors();
 
+  // Reverse data so most recent is on the right and visible
+  const reversedData = [...data].reverse();
+
   // Get max value for scaling - use actual max or reasonable default
-  const actualMax = Math.max(...data.map((d) => d.focusTime));
+  const actualMax = Math.max(...reversedData.map((d) => d.focusTime));
   const maxFocusTime = actualMax > 0 ? Math.max(actualMax, 30) : 60; // Scale to at least 30min if there's data
   const maxHeight = 150;
 
@@ -85,7 +88,7 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
 
           {/* Bars */}
           <View style={styles.barsContainer}>
-            {data.map((day, index) => {
+            {reversedData.map((day, index) => {
               // Calculate bar height - ensure good visibility for any data
               const barHeight =
                 day.focusTime > 0
@@ -143,8 +146,9 @@ export const FocusTimeChart: React.FC<FocusTimeChartProps> = ({ data, days = 7 }
                     style={[
                       styles.dateLabel,
                       {
-                        color: index === data.length - 1 ? theme.primary : theme.textSecondary,
-                        fontWeight: index === data.length - 1 ? '600' : '400',
+                        color:
+                          index === reversedData.length - 1 ? theme.primary : theme.textSecondary,
+                        fontWeight: index === reversedData.length - 1 ? '600' : '400',
                       },
                     ]}
                   >

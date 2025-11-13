@@ -234,6 +234,11 @@ export const TaskCard: React.FC<TaskCardProps> = ({
           onLongPress={onLongPress}
           activeOpacity={0.7}
         >
+          {/* Drag handle indicator */}
+          <View style={styles.dragHandle}>
+            <Text style={styles.dragIcon}>☰</Text>
+          </View>
+
           {/* Git-style status indicator */}
           <TouchableOpacity
             style={styles.statusButton}
@@ -382,7 +387,7 @@ export const TaskCard: React.FC<TaskCardProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginHorizontal: Theme.layout.screenPadding,
+    marginHorizontal: Theme.spacing.sm,
     marginBottom: Theme.spacing.md,
     backgroundColor: Theme.colors.surface,
     borderRadius: Theme.borderRadius.md,
@@ -392,15 +397,28 @@ const styles = StyleSheet.create({
   },
   taskRow: {
     flexDirection: 'row',
-    padding: Theme.spacing.md,
+    padding: Theme.spacing.sm,
+    paddingLeft: Theme.spacing.xs,
     alignItems: 'flex-start',
   },
   taskRowActive: {
     backgroundColor: Theme.colors.surfaceLight,
     opacity: 0.8,
   },
+  dragHandle: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingRight: Theme.spacing.xs,
+    paddingLeft: 0,
+    width: 20,
+  },
+  dragIcon: {
+    fontSize: 16,
+    color: Theme.colors.textSecondary,
+    opacity: 0.5,
+  },
   statusButton: {
-    marginRight: Theme.spacing.md,
+    marginRight: Theme.spacing.sm,
     marginTop: 2,
   },
   statusSymbol: {
