@@ -17,12 +17,12 @@
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="screenshots/dashboard.jpg" alt="Dashboard" width="200"/>
-  <img src="screenshots/tasks.jpg" alt="Tasks" width="200"/>
-  <img src="screenshots/developerprofile.jpg" alt="Developer Profile" width="200"/>
-  <img src="screenshots/files.jpg" alt="Files" width="200"/>
-  <img src="screenshots/calendar.jpg" alt="Calendar" width="200"/>
-  <img src="screenshots/settings.jpg" alt="Settings" width="200"/>
+  <img src="ToDoAppExpo/screenshots/dashboard.jpg" alt="Dashboard" width="200"/>
+  <img src="ToDoAppExpo/screenshots/tasks.jpg" alt="Tasks" width="200"/>
+  <img src="ToDoAppExpo/screenshots/developerprofile.jpg" alt="Developer Profile" width="200"/>
+  <img src="ToDoAppExpo/screenshots/files.jpg" alt="Files" width="200"/>
+  <img src="ToDoAppExpo/screenshots/calendar.jpg" alt="Calendar" width="200"/>
+  <img src="ToDoAppExpo/screenshots/settings.jpg" alt="Settings" width="200"/>
 </div>
 
 ---
@@ -328,13 +328,31 @@ ToDoAppExpo/
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+We love contributions! TaskShell is open source and we welcome contributions from the community.
 
-1. Fork the project
-2. Create your feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
-5. Open a Pull Request
+### How to Contribute
+
+1. **Fork the repository**
+2. **Create a feature branch** (`git checkout -b feature/amazing-feature`)
+3. **Commit your changes** (`git commit -m 'feat: add amazing feature'`)
+4. **Push to the branch** (`git push origin feature/amazing-feature`)
+5. **Open a Pull Request**
+
+Please read our [Contributing Guidelines](CONTRIBUTING.md) and [Code of Conduct](CODE_OF_CONDUCT.md) before contributing.
+
+### Good First Issues
+
+Looking to contribute but not sure where to start? Check out our [good first issues](https://github.com/CypherNinjaa/ToDoAppExpo/issues?q=is%3Aissue+is%3Aopen+label%3A%22good+first+issue%22) label!
+
+### Areas We Need Help
+
+- 🐛 Bug fixes
+- 📝 Documentation improvements
+- 🎨 UI/UX enhancements
+- ⚡ Performance optimizations
+- 🧪 Adding tests
+- 🌐 Translations
+- ♿ Accessibility improvements
 
 ---
 
