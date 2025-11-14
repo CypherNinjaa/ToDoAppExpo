@@ -12,14 +12,18 @@ import {
   Platform,
   Modal,
   Image,
+  TextInput,
+  ScrollView,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
 import Pdf from 'react-native-pdf';
+import ImageViewing from 'react-native-image-viewing';
 import { Theme, CommonStyles } from '../constants';
 import { useFileStore } from '../stores';
+import { useTaskStore } from '../stores';
 import { TrackedFile, FileCategory, FileFilter } from '../types/file.types';
 import { SearchBar, FilterPanel } from '../components/inputs';
 
@@ -46,6 +50,21 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
   // Viewer state
   const [viewingImageUri, setViewingImageUri] = useState<string | null>(null);
   const [viewingPdf, setViewingPdf] = useState<TrackedFile | null>(null);
+
+  // Bulk operations state
+  const [bulkMode, setBulkMode] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+
+  // Edit modals
+  const [editingFile, setEditingFile] = useState<TrackedFile | null>(null);
+  const [editDescription, setEditDescription] = useState('');
+  const [editTags, setEditTags] = useState<string[]>([]);
+  const [newTag, setNewTag] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | undefined>(undefined);
+
+  // Get tasks for linking
+  const tasks = useTaskStore((state) => state.tasks);
+  const updateFile = useFileStore((state) => state.updateFile);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -75,7 +94,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
   useEffect(() => {
     loadFiles();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -105,6 +124,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
     return getFilteredFiles(filter);
   }, [
+    files, // Add files as dependency to track changes
     searchQuery,
     selectedCategories,
     selectedTags,
@@ -230,8 +250,6 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
         isFavorite: false,
       });
 
-      // No need to call loadFiles - store updates state automatically
-
       Alert.alert(
         'Success',
         `File "${pickedFile.name}" added\nCategory: ${category}\nSize: ${formatFileSize(pickedFile.size || 0)}`
@@ -246,9 +264,11 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
     try {
       // Update access count immediately
       await incrementAccessCount(file.id);
+      // Note: We don't re-fetch here to avoid delay in opening the file
+      // The access count will update on next refresh or navigation
 
-      // Check if it's an image - open in-app viewer
-      if (file.mimeType?.startsWith('image/') || file.category === 'media') {
+      // Check if it's an image - open in-app viewer with zoom
+      if (file.mimeType?.startsWith('image/')) {
         setViewingImageUri(file.uri);
         return;
       }
@@ -334,6 +354,23 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
       }
     }
   };
+  const handleShareFile = async (file: TrackedFile) => {
+    try {
+      const isAvailable = await Sharing.isAvailableAsync();
+      if (isAvailable) {
+        await Sharing.shareAsync(file.uri, {
+          mimeType: file.mimeType,
+          dialogTitle: `Share ${file.name}`,
+        });
+      } else {
+        Alert.alert('Error', 'Sharing is not available on this device');
+      }
+    } catch (error) {
+      console.error('Error sharing file:', error);
+      Alert.alert('Error', 'Failed to share file');
+    }
+  };
+
   const handleDeleteFile = async (fileId: string, fileName: string) => {
     Alert.alert('Delete File', `Remove "${fileName}" from tracking`, [
       { text: 'Cancel', style: 'cancel' },
@@ -341,11 +378,139 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteFile(fileId);
-          // No need to call loadFiles - store updates state automatically
+          try {
+            await deleteFile(fileId);
+            Alert.alert('Success', 'File removed from tracking.');
+          } catch (error) {
+            console.error('Error deleting file:', error);
+            Alert.alert('Error', 'Failed to delete file.');
+          }
         },
       },
     ]);
+  };
+
+  const handleEditFile = (file: TrackedFile) => {
+    setEditingFile(file);
+    setEditDescription(file.description || '');
+    setEditTags([...file.tags]);
+    setSelectedTaskId(file.relatedTaskId);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingFile) return;
+
+    try {
+      await updateFile(editingFile.id, {
+        description: editDescription,
+        tags: editTags,
+        relatedTaskId: selectedTaskId,
+      });
+      setEditingFile(null);
+      Alert.alert('Success', 'File updated successfully');
+    } catch (error) {
+      console.error('Error updating file:', error);
+      Alert.alert('Error', 'Failed to update file');
+    }
+  };
+
+  const handleAddTag = () => {
+    if (newTag.trim() && !editTags.includes(newTag.trim())) {
+      setEditTags([...editTags, newTag.trim()]);
+      setNewTag('');
+    }
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setEditTags(editTags.filter((tag) => tag !== tagToRemove));
+  };
+
+  // Bulk operations
+  const toggleBulkMode = () => {
+    setBulkMode(!bulkMode);
+    setSelectedFileIds(new Set());
+  };
+
+  const toggleFileSelection = (fileId: string) => {
+    const newSelection = new Set(selectedFileIds);
+    if (newSelection.has(fileId)) {
+      newSelection.delete(fileId);
+    } else {
+      newSelection.add(fileId);
+    }
+    setSelectedFileIds(newSelection);
+  };
+
+  const selectAllFiles = () => {
+    if (selectedFileIds.size === filteredFiles.length) {
+      setSelectedFileIds(new Set());
+    } else {
+      setSelectedFileIds(new Set(filteredFiles.map((f) => f.id)));
+    }
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedFileIds.size === 0) return;
+
+    Alert.alert('Delete Files', `Remove ${selectedFileIds.size} file(s) from tracking?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            for (const id of selectedFileIds) {
+              await deleteFile(id);
+            }
+            setSelectedFileIds(new Set());
+            setBulkMode(false);
+            Alert.alert('Success', `${selectedFileIds.size} file(s) removed`);
+          } catch (error) {
+            console.error('Error bulk deleting:', error);
+            Alert.alert('Error', 'Failed to delete some files');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleBulkFavorite = async () => {
+    if (selectedFileIds.size === 0) return;
+
+    try {
+      for (const id of selectedFileIds) {
+        await toggleFavorite(id);
+      }
+      setSelectedFileIds(new Set());
+      Alert.alert('Success', `Updated ${selectedFileIds.size} file(s)`);
+    } catch (error) {
+      console.error('Error bulk favoriting:', error);
+      Alert.alert('Error', 'Failed to update some files');
+    }
+  };
+
+  const handleBulkTag = () => {
+    if (selectedFileIds.size === 0) return;
+
+    Alert.prompt('Add Tag', 'Enter tag to add to selected files:', async (tag) => {
+      if (!tag || !tag.trim()) return;
+
+      try {
+        for (const id of selectedFileIds) {
+          const file = files.find((f) => f.id === id);
+          if (file && !file.tags.includes(tag.trim())) {
+            await updateFile(id, {
+              tags: [...file.tags, tag.trim()],
+            });
+          }
+        }
+        setSelectedFileIds(new Set());
+        Alert.alert('Success', `Tagged ${selectedFileIds.size} file(s)`);
+      } catch (error) {
+        console.error('Error bulk tagging:', error);
+        Alert.alert('Error', 'Failed to tag some files');
+      }
+    });
   };
 
   const getCategoryIcon = (category: FileCategory): string => {
@@ -380,67 +545,104 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
     return new Date(date).toLocaleDateString();
   };
 
-  const renderFileCard = ({ item: file }: { item: TrackedFile }) => (
-    <TouchableOpacity
-      style={styles.fileCard}
-      onPress={() => handleOpenFile(file)}
-      activeOpacity={0.7}
-    >
-      <View style={styles.fileHeader}>
-        <View style={styles.fileIconContainer}>
-          <Text style={styles.fileIcon}>{getCategoryIcon(file.category)}</Text>
-        </View>
-        <View style={styles.fileInfo}>
-          <View style={styles.fileNameRow}>
-            <Text style={styles.fileName} numberOfLines={1}>
-              {file.name}
-            </Text>
-            <View style={styles.categoryBadge}>
-              <Text style={styles.categoryBadgeText}>{file.category}</Text>
-            </View>
+  const renderFileCard = ({ item: file }: { item: TrackedFile }) => {
+    const isSelected = selectedFileIds.has(file.id);
+    const relatedTask = file.relatedTaskId ? tasks.find((t) => t.id === file.relatedTaskId) : null;
+
+    return (
+      <TouchableOpacity
+        style={[styles.fileCard, isSelected && styles.fileCardSelected]}
+        onPress={() => (bulkMode ? toggleFileSelection(file.id) : handleOpenFile(file))}
+        onLongPress={() => {
+          if (!bulkMode) {
+            setBulkMode(true);
+            toggleFileSelection(file.id);
+          }
+        }}
+        activeOpacity={0.7}
+      >
+        {bulkMode && (
+          <View style={styles.selectionIndicator}>
+            <Text style={styles.selectionIcon}>{isSelected ? '☑️' : '☐'}</Text>
           </View>
-          <Text style={styles.fileMetadata}>
-            {formatFileSize(file.size)} • {formatDate(file.lastAccessed)} • {file.accessCount} opens
-          </Text>
-        </View>
-        <TouchableOpacity
-          onPress={async () => {
-            await toggleFavorite(file.id);
-            // No need to call loadFiles - store updates state automatically
-          }}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-        >
-          <Text style={styles.favoriteIcon}>{file.isFavorite ? '⭐' : '☆'}</Text>
-        </TouchableOpacity>
-      </View>
+        )}
 
-      {file.description && (
-        <Text style={styles.fileDescription} numberOfLines={2}>
-          {file.description}
-        </Text>
-      )}
-
-      {file.tags.length > 0 && (
-        <View style={styles.tagsContainer}>
-          {file.tags.map((tag) => (
-            <View key={tag} style={styles.tag}>
-              <Text style={styles.tagText}>#{tag}</Text>
+        <View style={styles.fileHeader}>
+          <View style={styles.fileIconContainer}>
+            <Text style={styles.fileIcon}>{getCategoryIcon(file.category)}</Text>
+          </View>
+          <View style={styles.fileInfo}>
+            <View style={styles.fileNameRow}>
+              <Text style={styles.fileName} numberOfLines={1}>
+                {file.name}
+              </Text>
+              <View style={styles.categoryBadge}>
+                <Text style={styles.categoryBadgeText}>{file.category}</Text>
+              </View>
             </View>
-          ))}
+            <Text style={styles.fileMetadata}>
+              {formatFileSize(file.size)} • {formatDate(file.lastAccessed)} • {file.accessCount}{' '}
+              opens
+            </Text>
+            {relatedTask && <Text style={styles.linkedTask}>🔗 {relatedTask.title}</Text>}
+          </View>
+          {!bulkMode && (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  await toggleFavorite(file.id);
+                } catch (error) {
+                  console.error('Error toggling favorite:', error);
+                  Alert.alert('Error', 'Failed to update favorite status.');
+                }
+              }}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Text style={styles.favoriteIcon}>{file.isFavorite ? '⭐' : '☆'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
-      )}
 
-      <View style={styles.fileActions}>
-        <TouchableOpacity
-          style={styles.fileActionButton}
-          onPress={() => handleDeleteFile(file.id, file.name)}
-        >
-          <Text style={styles.deleteIcon}>🗑️</Text>
-          <Text style={styles.fileActionButtonText}>Remove</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
-  );
+        {file.description && (
+          <Text style={styles.fileDescription} numberOfLines={2}>
+            {file.description}
+          </Text>
+        )}
+
+        {file.tags.length > 0 && (
+          <View style={styles.tagsContainer}>
+            {file.tags.map((tag) => (
+              <View key={tag} style={styles.tag}>
+                <Text style={styles.tagText}>#{tag}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {!bulkMode && (
+          <View style={styles.fileActions}>
+            <TouchableOpacity style={styles.fileActionButton} onPress={() => handleEditFile(file)}>
+              <Text style={styles.actionIcon}>✏️</Text>
+              <Text style={styles.fileActionButtonTextNormal}>Edit</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.fileActionButton} onPress={() => handleShareFile(file)}>
+              <Text style={styles.actionIcon}>📤</Text>
+              <Text style={styles.fileActionButtonTextNormal}>Share</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.fileActionButton}
+              onPress={() => handleDeleteFile(file.id, file.name)}
+            >
+              <Text style={styles.deleteIcon}>🗑️</Text>
+              <Text style={styles.fileActionButtonText}>Remove</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+      </TouchableOpacity>
+    );
+  };
 
   if (isLoading && files.length === 0) {
     return (
@@ -496,7 +698,40 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
               ⭐ Favorites
             </Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionButton, bulkMode && styles.actionButtonActive]}
+            onPress={toggleBulkMode}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.actionButtonText, bulkMode && styles.actionButtonTextActive]}>
+              ☑️ {bulkMode ? 'Cancel' : 'Select'}
+            </Text>
+          </TouchableOpacity>
         </View>
+
+        {/* Bulk Operations Bar */}
+        {bulkMode && selectedFileIds.size > 0 && (
+          <View style={styles.bulkBar}>
+            <Text style={styles.bulkBarText}>{selectedFileIds.size} selected</Text>
+            <View style={styles.bulkActions}>
+              <TouchableOpacity onPress={selectAllFiles} style={styles.bulkActionButton}>
+                <Text style={styles.bulkActionText}>Select All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleBulkFavorite} style={styles.bulkActionButton}>
+                <Text style={styles.bulkActionText}>⭐ Favorite</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleBulkTag} style={styles.bulkActionButton}>
+                <Text style={styles.bulkActionText}>🏷️ Tag</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleBulkDelete} style={styles.bulkActionButton}>
+                <Text style={[styles.bulkActionText, { color: Theme.colors.error }]}>
+                  🗑️ Delete
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
 
         {/* Filter Panel */}
         {showFilters && (
@@ -567,26 +802,13 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
         <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
 
-      {/* Image Viewer Modal */}
-      <Modal
+      {/* Image Viewer Modal with Zoom */}
+      <ImageViewing
+        images={viewingImageUri ? [{ uri: viewingImageUri }] : []}
+        imageIndex={0}
         visible={viewingImageUri !== null}
-        transparent={true}
         onRequestClose={() => setViewingImageUri(null)}
-      >
-        <View style={styles.imageViewerBackdrop}>
-          <TouchableOpacity
-            style={styles.imageViewerCloseButton}
-            onPress={() => setViewingImageUri(null)}
-          >
-            <Text style={styles.closeButtonText}>✕</Text>
-          </TouchableOpacity>
-          <Image
-            source={{ uri: viewingImageUri || undefined }}
-            style={styles.imageViewer}
-            resizeMode="contain"
-          />
-        </View>
-      </Modal>
+      />
 
       {/* PDF Viewer Modal */}
       <Modal
@@ -612,6 +834,111 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
               style={styles.pdfViewer}
             />
           )}
+        </View>
+      </Modal>
+
+      {/* Edit File Modal */}
+      <Modal
+        visible={editingFile !== null}
+        animationType="slide"
+        onRequestClose={() => setEditingFile(null)}
+      >
+        <View style={styles.editModalContainer}>
+          <View style={styles.editModalHeader}>
+            <Text style={styles.editModalTitle}>Edit File</Text>
+            <TouchableOpacity onPress={() => setEditingFile(null)}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.editModalContent}>
+            {editingFile && (
+              <>
+                <Text style={styles.editModalFileName}>{editingFile.name}</Text>
+
+                {/* Description */}
+                <Text style={styles.editLabel}>Description:</Text>
+                <TextInput
+                  style={styles.editInput}
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  placeholder="Add a description..."
+                  placeholderTextColor={Theme.colors.comment}
+                  multiline
+                  numberOfLines={3}
+                />
+
+                {/* Tags */}
+                <Text style={styles.editLabel}>Tags:</Text>
+                <View style={styles.tagsContainer}>
+                  {editTags.map((tag) => (
+                    <TouchableOpacity
+                      key={tag}
+                      style={styles.tag}
+                      onPress={() => handleRemoveTag(tag)}
+                    >
+                      <Text style={styles.tagText}>#{tag}</Text>
+                      <Text style={styles.tagRemove}> ✕</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <View style={styles.tagInputRow}>
+                  <TextInput
+                    style={[styles.editInput, { flex: 1 }]}
+                    value={newTag}
+                    onChangeText={setNewTag}
+                    placeholder="Add tag..."
+                    placeholderTextColor={Theme.colors.comment}
+                    onSubmitEditing={handleAddTag}
+                  />
+                  <TouchableOpacity style={styles.addTagButton} onPress={handleAddTag}>
+                    <Text style={styles.addTagButtonText}>Add</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Link to Task */}
+                <Text style={styles.editLabel}>Linked Task:</Text>
+                <View style={styles.taskPickerContainer}>
+                  <TouchableOpacity
+                    style={styles.taskPickerButton}
+                    onPress={() => {
+                      Alert.alert('Select Task', 'Choose a task to link', [
+                        { text: 'None', onPress: () => setSelectedTaskId(undefined) },
+                        ...tasks.slice(0, 10).map((task) => ({
+                          text: task.title,
+                          onPress: () => setSelectedTaskId(task.id),
+                        })),
+                        { text: 'Cancel', style: 'cancel' },
+                      ]);
+                    }}
+                  >
+                    <Text style={styles.taskPickerButtonText}>
+                      {selectedTaskId
+                        ? tasks.find((t) => t.id === selectedTaskId)?.title || 'Select task...'
+                        : 'No task linked'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </ScrollView>
+
+          <View style={styles.editModalFooter}>
+            <TouchableOpacity
+              style={[styles.editModalButton, styles.editModalButtonCancel]}
+              onPress={() => setEditingFile(null)}
+            >
+              <Text style={styles.editModalButtonText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.editModalButton, styles.editModalButtonSave]}
+              onPress={handleSaveEdit}
+            >
+              <Text style={[styles.editModalButtonText, { color: Theme.colors.background }]}>
+                Save
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
@@ -946,5 +1273,181 @@ const styles = StyleSheet.create({
   pdfViewer: {
     flex: 1,
     width: '100%',
+  },
+  // Bulk mode styles
+  fileCardSelected: {
+    backgroundColor: Theme.colors.primary + '15',
+    borderColor: Theme.colors.primary,
+    borderWidth: 2,
+  },
+  selectionIndicator: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    zIndex: 1,
+  },
+  selectionIcon: {
+    fontSize: 24,
+  },
+  linkedTask: {
+    fontSize: 12,
+    color: Theme.colors.info,
+    fontFamily: 'FiraCode-Regular',
+    marginTop: 4,
+  },
+  actionIcon: {
+    fontSize: 16,
+  },
+  fileActionButtonTextNormal: {
+    fontSize: 12,
+    color: Theme.colors.info,
+    fontFamily: 'FiraCode-Regular',
+  },
+  bulkBar: {
+    marginTop: Theme.spacing.md,
+    padding: Theme.spacing.md,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: Theme.borderRadius.md,
+    borderWidth: 1,
+    borderColor: Theme.colors.primary,
+  },
+  bulkBarText: {
+    fontSize: 14,
+    color: Theme.colors.primary,
+    fontFamily: 'FiraCode-Bold',
+    marginBottom: 8,
+  },
+  bulkActions: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  bulkActionButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: Theme.colors.background,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  bulkActionText: {
+    fontSize: 12,
+    color: Theme.colors.textPrimary,
+    fontFamily: 'FiraCode-Regular',
+  },
+  // Edit Modal styles
+  editModalContainer: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  editModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: Theme.spacing.lg,
+    paddingTop: 60,
+    backgroundColor: Theme.colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: Theme.colors.border,
+  },
+  editModalTitle: {
+    fontSize: 20,
+    fontFamily: 'FiraCode-Bold',
+    color: Theme.colors.keyword,
+  },
+  editModalContent: {
+    flex: 1,
+    padding: Theme.spacing.lg,
+  },
+  editModalFileName: {
+    fontSize: 16,
+    fontFamily: 'FiraCode-Bold',
+    color: Theme.colors.textPrimary,
+    marginBottom: Theme.spacing.lg,
+  },
+  editLabel: {
+    fontSize: 14,
+    fontFamily: 'FiraCode-Bold',
+    color: Theme.colors.textSecondary,
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  editInput: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.sm,
+    padding: 12,
+    fontSize: 14,
+    fontFamily: 'FiraCode-Regular',
+    color: Theme.colors.textPrimary,
+    minHeight: 44,
+  },
+  tagInputRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 8,
+  },
+  addTagButton: {
+    backgroundColor: Theme.colors.success,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: Theme.borderRadius.sm,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addTagButtonText: {
+    fontSize: 14,
+    fontFamily: 'FiraCode-Bold',
+    color: Theme.colors.background,
+  },
+  tagRemove: {
+    fontSize: 12,
+    color: Theme.colors.error,
+  },
+  taskPickerContainer: {
+    marginTop: 8,
+  },
+  taskPickerButton: {
+    backgroundColor: Theme.colors.surface,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+    borderRadius: Theme.borderRadius.sm,
+    padding: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  taskPickerButtonText: {
+    fontSize: 14,
+    fontFamily: 'FiraCode-Regular',
+    color: Theme.colors.textPrimary,
+  },
+  editModalFooter: {
+    flexDirection: 'row',
+    gap: 12,
+    padding: Theme.spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: Theme.colors.border,
+    backgroundColor: Theme.colors.surface,
+  },
+  editModalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: Theme.borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editModalButtonCancel: {
+    backgroundColor: Theme.colors.background,
+    borderWidth: 1,
+    borderColor: Theme.colors.border,
+  },
+  editModalButtonSave: {
+    backgroundColor: Theme.colors.success,
+  },
+  editModalButtonText: {
+    fontSize: 16,
+    fontFamily: 'FiraCode-Bold',
+    color: Theme.colors.textPrimary,
   },
 });

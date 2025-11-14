@@ -4,6 +4,7 @@ import { View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import * as SplashScreen from 'expo-splash-screen';
 import * as Notifications from 'expo-notifications';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAppFonts } from './src/hooks/useAppFonts';
 import { useInitializeApp } from './src/hooks/useInitializeApp';
 import { AppNavigator } from './src/navigation';
@@ -101,10 +102,12 @@ export default function App() {
   // Show boot splash on first load
   if (showBootSplash && fontsLoaded && !isCheckingUser && showApp && isInitialized) {
     return (
-      <GestureHandlerRootView style={styles.container}>
-        <BootSplashScreen onFinish={handleBootSplashFinish} />
-        <StatusBar style="light" />
-      </GestureHandlerRootView>
+      <SafeAreaProvider>
+        <GestureHandlerRootView style={styles.container}>
+          <BootSplashScreen onFinish={handleBootSplashFinish} />
+          <StatusBar style="light" />
+        </GestureHandlerRootView>
+      </SafeAreaProvider>
     );
   }
 
@@ -128,16 +131,18 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={styles.container}>
-      <View style={styles.container} onLayout={onLayoutRootView}>
-        {username ? (
-          <AppNavigator username={username} />
-        ) : (
-          <WelcomeScreen onComplete={handleWelcomeComplete} showSplash={true} />
-        )}
-        <StatusBar style="light" />
-      </View>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <GestureHandlerRootView style={styles.container}>
+        <View style={styles.container} onLayout={onLayoutRootView}>
+          {username ? (
+            <AppNavigator username={username} />
+          ) : (
+            <WelcomeScreen onComplete={handleWelcomeComplete} showSplash={true} />
+          )}
+          <StatusBar style="light" />
+        </View>
+      </GestureHandlerRootView>
+    </SafeAreaProvider>
   );
 }
 
