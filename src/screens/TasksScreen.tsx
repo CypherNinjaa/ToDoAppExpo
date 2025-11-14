@@ -45,6 +45,13 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
   const reorderTasks = useTaskStore((state) => state.reorderTasks);
   const deleteTask = useTaskStore((state) => state.deleteTask);
 
+  // Debug: Check if toggleSubtask is properly loaded from store
+  useEffect(() => {
+    if (!toggleSubtask) {
+      console.error('toggleSubtask is undefined from store!');
+    }
+  }, [toggleSubtask]);
+
   const [refreshing, setRefreshing] = useState(false);
   const [showTaskForm, setShowTaskForm] = useState(false);
   const [editingTaskId, setEditingTaskId] = useState<string | undefined>(undefined);
@@ -424,7 +431,9 @@ export const TasksScreen: React.FC<TasksScreenProps> = ({ username }) => {
                 username={username}
                 onPress={() => handleEditTask(item.id)}
                 onToggleComplete={() => handleToggleComplete(item.id)}
-                onToggleSubtask={(subtaskId) => toggleSubtask(item.id, subtaskId)}
+                onToggleSubtask={
+                  toggleSubtask ? (subtaskId) => toggleSubtask(item.id, subtaskId) : undefined
+                }
                 onDelete={() => handleDeleteTask(item.id)}
                 onLongPress={drag}
                 isActive={isActive}

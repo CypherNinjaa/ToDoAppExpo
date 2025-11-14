@@ -30,6 +30,15 @@ const TaskCardComponent: React.FC<TaskCardProps> = ({
   onLongPress,
   isActive = false,
 }) => {
+  // Debug: Log if onToggleSubtask is undefined
+  useEffect(() => {
+    if (!onToggleSubtask && task.subtasks && task.subtasks.length > 0) {
+      console.warn(
+        `TaskCard for "${task.title}": onToggleSubtask is undefined but task has subtasks`
+      );
+    }
+  }, [onToggleSubtask, task.subtasks, task.title]);
+
   const scaleAnim = useRef(new Animated.Value(1)).current;
   const completionAnim = useRef(new Animated.Value(0)).current;
   const mountAnim = useRef(new Animated.Value(0)).current;

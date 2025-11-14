@@ -10,10 +10,15 @@ import {
   Alert,
   Linking,
   Platform,
+  Modal,
+  Image,
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
+import * as IntentLauncher from 'expo-intent-launcher';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Ionicons } from 'expo-vector-icons';
+import Pdf from 'react-native-pdf';
 import { Theme, CommonStyles } from '../constants';
 import { useFileStore, useTaskStore } from '../stores';
 import { TrackedFile, FileCategory, FileFilter } from '../types/file.types';
@@ -40,6 +45,10 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+
+  // Viewer state
+  const [viewingImageUri, setViewingImageUri] = useState<string | null>(null);
+  const [viewingPdf, setViewingPdf] = useState<TrackedFile | null>(null);
 
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -238,30 +247,94 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
   const handleOpenFile = async (file: TrackedFile) => {
     try {
-      // Update access count immediately (optimistic update)
+      // Update access count immediately
       await incrementAccessCount(file.id);
 
-      // Use Sharing API to open files on both Android and iOS
-      const isAvailable = await Sharing.isAvailableAsync();
+      // Check if it's an image - open in-app viewer
+      if (file.mimeType?.startsWith('image/') || file.category === 'media') {
+        setViewingImageUri(file.uri);
+        return;
+      }
 
-      if (isAvailable) {
-        // Share the file which will show "Open with..." dialog
-        await Sharing.shareAsync(file.uri, {
-          mimeType: file.mimeType || '*/*',
-          UTI: file.mimeType,
-        });
+      // Check if it's a PDF - open in-app viewer
+      if (file.mimeType === 'application/pdf') {
+        setViewingPdf(file);
+        return;
+      }
+
+      // For all other file types, use native opening
+      if (Platform.OS === 'android') {
+        // --- Android: Use expo-sharing to get a content URI, then IntentLauncher ---
+        // expo-sharing handles creating a temporary content:// URI via FileProvider
+        // This prevents FileUriExposedException on Android API 24+
+
+        // Check if file exists first
+        const fileInfo = await FileSystem.getInfoAsync(file.uri);
+        if (!fileInfo.exists) {
+          Alert.alert('Error', 'File not found. It may have been moved or deleted.');
+          return;
+        }
+
+        // Use IntentLauncher with proper content URI handling
+        // If the URI is already a content:// URI from DocumentPicker, use it directly
+        if (file.uri.startsWith('content://')) {
+          await IntentLauncher.startActivityAsync('android.intent.action.VIEW', {
+            data: file.uri,
+            flags: 1, // FLAG_GRANT_READ_URI_PERMISSION
+            type: file.mimeType || '*/*',
+          });
+        } else {
+          // For file:// URIs, we need to use Sharing to get a secure content:// URI
+          // This will briefly show the share dialog, but it's the proper way to handle file:// URIs
+          const sharingAvailable = await Sharing.isAvailableAsync();
+          if (sharingAvailable) {
+            await Sharing.shareAsync(file.uri, {
+              mimeType: file.mimeType || '*/*',
+              UTI: file.mimeType,
+              dialogTitle: `Open ${file.name}`,
+            });
+          } else {
+            Alert.alert('Error', 'Cannot open this file on this device.');
+          }
+        }
       } else {
-        // Fallback to Linking for platforms where Sharing is not available
-        const canOpen = await Linking.canOpenURL(file.uri);
-        if (canOpen) {
-          await Linking.openURL(file.uri);
+        // --- iOS: Use Sharing API (this is the correct way) ---
+        // This shows the standard iOS share sheet with "Open in..."
+        const isAvailable = await Sharing.isAvailableAsync();
+
+        if (isAvailable) {
+          await Sharing.shareAsync(file.uri, {
+            mimeType: file.mimeType || '*/*',
+            UTI: file.mimeType,
+          });
         } else {
           Alert.alert('Error', 'Cannot open this file type on this device');
         }
       }
     } catch (error) {
       console.error('Error opening file:', error);
-      Alert.alert('Error', 'Failed to open file. The file may have been moved or deleted.');
+
+      if (error instanceof Error) {
+        const errorMessage = error.message;
+
+        // Specific check for the 'No Activity found' error on Android
+        if (errorMessage.includes('No Activity found to handle Intent')) {
+          Alert.alert('Error', 'No application on your device can open this file type.');
+        } else if (errorMessage.includes('FileUriExposedException')) {
+          // This specific error should now be resolved by using content:// URIs
+          Alert.alert(
+            'Security Error',
+            'Failed to open file due to Android security restrictions. Please ensure the file exists and try again.'
+          );
+        } else {
+          Alert.alert(
+            'Error',
+            'Failed to open file. The file may have been moved, deleted, or permissions are insufficient.'
+          );
+        }
+      } else {
+        Alert.alert('Error', 'An unknown error occurred while opening the file.');
+      }
     }
   };
   const handleDeleteFile = async (fileId: string, fileName: string) => {
@@ -500,6 +573,54 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
       <TouchableOpacity style={styles.addButton} onPress={handlePickFile}>
         <Ionicons name="add" size={32} color={Theme.colors.background} />
       </TouchableOpacity>
+
+      {/* Image Viewer Modal */}
+      <Modal
+        visible={viewingImageUri !== null}
+        transparent={true}
+        onRequestClose={() => setViewingImageUri(null)}
+      >
+        <View style={styles.imageViewerBackdrop}>
+          <TouchableOpacity
+            style={styles.imageViewerCloseButton}
+            onPress={() => setViewingImageUri(null)}
+          >
+            <Ionicons name="close" size={32} color="#fff" />
+          </TouchableOpacity>
+          <Image
+            source={{ uri: viewingImageUri || undefined }}
+            style={styles.imageViewer}
+            resizeMode="contain"
+          />
+        </View>
+      </Modal>
+
+      {/* PDF Viewer Modal */}
+      <Modal
+        visible={viewingPdf !== null}
+        animationType="slide"
+        onRequestClose={() => setViewingPdf(null)}
+      >
+        <View style={styles.pdfViewerContainer}>
+          <TouchableOpacity style={styles.pdfViewerCloseButton} onPress={() => setViewingPdf(null)}>
+            <Ionicons name="close" size={32} color={Theme.colors.textPrimary} />
+          </TouchableOpacity>
+          {viewingPdf && (
+            <Pdf
+              source={{ uri: viewingPdf.uri, cache: true }}
+              onLoadComplete={(numberOfPages, filePath) => {
+                console.log(`PDF loaded: ${numberOfPages} pages at ${filePath}`);
+              }}
+              onError={(error) => {
+                console.error('PDF error:', error);
+                Alert.alert('Error', 'Could not load PDF.');
+                setViewingPdf(null);
+              }}
+              style={styles.pdfViewer}
+            />
+          )}
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -761,5 +882,48 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
+  },
+  // Image Viewer styles
+  imageViewerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  imageViewerCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 20,
+  },
+  imageViewer: {
+    width: '100%',
+    height: '100%',
+  },
+  // PDF Viewer styles
+  pdfViewerContainer: {
+    flex: 1,
+    backgroundColor: Theme.colors.background,
+  },
+  pdfViewerCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+    backgroundColor: Theme.colors.surface,
+    borderRadius: 20,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  pdfViewer: {
+    flex: 1,
+    width: '100%',
   },
 });
