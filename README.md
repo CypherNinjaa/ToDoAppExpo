@@ -17,12 +17,12 @@
 ## 📸 Screenshots
 
 <div align="center">
-  <img src="ToDoAppExpo/screenshots/dashboard.jpg" alt="Dashboard" width="200"/>
-  <img src="ToDoAppExpo/screenshots/tasks.jpg" alt="Tasks" width="200"/>
-  <img src="ToDoAppExpo/screenshots/developerprofile.jpg" alt="Developer Profile" width="200"/>
-  <img src="ToDoAppExpo/screenshots/files.jpg" alt="Files" width="200"/>
-  <img src="ToDoAppExpo/screenshots/calendar.jpg" alt="Calendar" width="200"/>
-  <img src="ToDoAppExpo/screenshots/settings.jpg" alt="Settings" width="200"/>
+  <img src="screenshots/dashboard.jpg" alt="Dashboard" width="200"/>
+  <img src="screenshots/tasks.jpg" alt="Tasks" width="200"/>
+  <img src="screenshots/developerprofile.jpg" alt="Developer Profile" width="200"/>
+  <img src="screenshots/files.jpg" alt="Files" width="200"/>
+  <img src="screenshots/calendar.jpg" alt="Calendar" width="200"/>
+  <img src="screenshots/settings.jpg" alt="Settings" width="200"/>
 </div>
 
 ---
