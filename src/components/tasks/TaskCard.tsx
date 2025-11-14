@@ -644,7 +644,6 @@ export const TaskCard = memo(TaskCardComponent, (prevProps, nextProps) => {
     prevProps.task.id === nextProps.task.id &&
     prevProps.task.status === nextProps.task.status &&
     prevProps.task.title === nextProps.task.title &&
-    prevProps.task.updatedAt === nextProps.task.updatedAt &&
     prevProps.isActive === nextProps.isActive &&
     prevProps.username === nextProps.username
   );

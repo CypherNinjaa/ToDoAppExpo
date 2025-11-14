@@ -8,8 +8,9 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { useAppFonts } from './src/hooks/useAppFonts';
 import { useInitializeApp } from './src/hooks/useInitializeApp';
 import { AppNavigator } from './src/navigation';
-import { WelcomeScreen, SplashScreen as BootSplashScreen } from './src/screens';
+import { WelcomeScreen, SplashScreen as BootSplashScreen, PermissionsScreen } from './src/screens';
 import { StorageService } from './src/services/storage';
+import { StorageKeys } from './src/services/storageKeys';
 import { notificationService } from './src/services/notificationService';
 import { useThemeStore } from './src/stores/themeStore';
 import { Theme } from './src/constants';
@@ -25,13 +26,17 @@ export default function App() {
   const [isCheckingUser, setIsCheckingUser] = useState(true);
   const [showApp, setShowApp] = useState(false);
   const [showBootSplash, setShowBootSplash] = useState(true);
+  const [permissionsRequested, setPermissionsRequested] = useState(false);
   const notificationListener = useRef<Notifications.Subscription | undefined>(undefined);
   const responseListener = useRef<Notifications.Subscription | undefined>(undefined);
 
   useEffect(() => {
     const checkUsername = async () => {
       const savedUsername = await StorageService.getUsername();
+      const permissionsStatus = await StorageService.getItem(StorageKeys.PERMISSIONS_REQUESTED);
+
       setUsername(savedUsername);
+      setPermissionsRequested(permissionsStatus === 'true');
       setIsCheckingUser(false);
 
       // Show splash for first time users
@@ -95,6 +100,10 @@ export default function App() {
     setUsername(newUsername);
   };
 
+  const handlePermissionsComplete = () => {
+    setPermissionsRequested(true);
+  };
+
   const handleBootSplashFinish = () => {
     setShowBootSplash(false);
   };
@@ -135,7 +144,11 @@ export default function App() {
       <GestureHandlerRootView style={styles.container}>
         <View style={styles.container} onLayout={onLayoutRootView}>
           {username ? (
-            <AppNavigator username={username} />
+            permissionsRequested ? (
+              <AppNavigator username={username} />
+            ) : (
+              <PermissionsScreen onComplete={handlePermissionsComplete} />
+            )
           ) : (
             <WelcomeScreen onComplete={handleWelcomeComplete} showSplash={true} />
           )}

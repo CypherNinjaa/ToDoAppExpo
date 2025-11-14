@@ -12,11 +12,6 @@ import {
 import { ExportImportScreen } from './ExportImportScreen';
 import { DeveloperProfileScreen } from './DeveloperProfileScreen';
 import { useThemeStore } from '../stores/themeStore';
-import {
-  testNotificationDelivery,
-  testNotificationChannels,
-  cancelAllTestNotifications,
-} from '../utils/notificationTest';
 
 interface SettingsScreenProps {
   username: string;
@@ -72,21 +67,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
         },
       ]
     );
-  }, []);
-
-  const handleTestNotification = useCallback(async () => {
-    Alert.alert('Testing Notifications', 'Check your notification tray in 1-2 seconds');
-    await testNotificationDelivery();
-  }, []);
-
-  const handleTestAllChannels = useCallback(async () => {
-    Alert.alert('Testing All Channels', 'You will receive 4 notifications over the next 8 seconds');
-    await testNotificationChannels();
-  }, []);
-
-  const handleCancelNotifications = useCallback(async () => {
-    await cancelAllTestNotifications();
-    Alert.alert('Done', 'All scheduled notifications cancelled');
   }, []);
 
   return (
@@ -157,67 +137,6 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
               </Text>
               <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
                 // Export & Import Tasks
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Notification Testing Section */}
-          <View style={styles.section}>
-            <Text style={[styles.sectionTitle, { color: colors.comment }]}>
-              // Notification Testing
-            </Text>
-
-            <TouchableOpacity
-              style={[
-                styles.testButton,
-                {
-                  backgroundColor: colors.primary + '20',
-                  borderColor: colors.primary,
-                },
-              ]}
-              onPress={handleTestNotification}
-            >
-              <Text style={[styles.testButtonText, { color: colors.primary }]}>
-                $ test-notification --basic
-              </Text>
-              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
-                // Send 2 test notifications
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.testButton,
-                {
-                  backgroundColor: colors.primary + '20',
-                  borderColor: colors.primary,
-                },
-              ]}
-              onPress={handleTestAllChannels}
-            >
-              <Text style={[styles.testButtonText, { color: colors.primary }]}>
-                $ test-notification --all-channels
-              </Text>
-              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
-                // Test all 4 notification channels
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.testButton,
-                {
-                  backgroundColor: colors.primary + '20',
-                  borderColor: colors.primary,
-                },
-              ]}
-              onPress={handleCancelNotifications}
-            >
-              <Text style={[styles.testButtonText, { color: colors.primary }]}>
-                $ cancel-notifications --all
-              </Text>
-              <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
-                // Clear scheduled notifications
               </Text>
             </TouchableOpacity>
           </View>

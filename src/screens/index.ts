@@ -8,3 +8,4 @@ export { SplashScreen } from './SplashScreen';
 export { TaskFormScreen } from './TaskFormScreen';
 export { ExportImportScreen } from './ExportImportScreen';
 export { FilesScreen } from './FilesScreen';
+export { PermissionsScreen } from './PermissionsScreen';

@@ -13,6 +13,9 @@ export const StorageKeys = {
   // Metadata
   LAST_SYNC: '@devtodo:last_sync',
   FIRST_LAUNCH: '@devtodo:first_launch',
+  PERMISSIONS_REQUESTED: '@devtodo:permissions_requested',
+  NOTIFICATION_PERMISSION: '@devtodo:notification_permission',
+  FILES_PERMISSION: '@devtodo:files_permission',
 
   // Statistics
   STREAK: '@devtodo:streak',
