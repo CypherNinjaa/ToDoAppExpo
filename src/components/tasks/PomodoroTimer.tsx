@@ -9,6 +9,8 @@ import {
   ScrollView,
   Animated,
   FlatList,
+  AppState,
+  AppStateStatus,
 } from 'react-native';
 import { useTimerStore } from '../../stores/timerStore';
 import { useThemeStore } from '../../stores/themeStore';
@@ -80,6 +82,9 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, i
   // Setup timer completion handler
   useEffect(() => {
     setOnTimerComplete(async () => {
+      // Dismiss status bar timer notification
+      await notificationService.stopTimerNotification();
+
       // Send notification (safe for Expo Go)
       try {
         const notificationBody = linkedTask
@@ -113,24 +118,74 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, i
   // Initialize timer from settings on mount
   useEffect(() => {
     initializeFromSettings(settings.focusDuration, settings.breakDuration);
-  }, [settings.focusDuration, settings.breakDuration, initializeFromSettings]); // Countdown interval effect
+  }, [settings.focusDuration, settings.breakDuration, initializeFromSettings]);
+
+  // Countdown interval effect with AppState handling
   useEffect(() => {
     let interval: NodeJS.Timeout | null = null;
+    let notificationUpdateInterval: NodeJS.Timeout | null = null;
+    const appStateSubscription = AppState.addEventListener('change', handleAppStateChange);
 
     if (status === 'running') {
       interval = setInterval(() => {
         tick();
       }, 1000);
+
+      // Start status bar timer notification once
+      notificationService.startTimerNotification(remainingTime, type, linkedTask?.title);
+
+      // Update notification every 5 seconds (much more efficient)
+      notificationUpdateInterval = setInterval(() => {
+        const state = useTimerStore.getState();
+        notificationService.updateTimerNotification(
+          state.remainingTime,
+          state.type,
+          linkedTask?.title
+        );
+      }, 5000);
+    } else {
+      // Stop status bar notification when timer stops
+      notificationService.stopTimerNotification();
     }
 
     return () => {
       if (interval) {
         clearInterval(interval);
       }
+      if (notificationUpdateInterval) {
+        clearInterval(notificationUpdateInterval);
+      }
+      appStateSubscription.remove();
     };
-  }, [status, tick]);
+  }, [status, tick, type, linkedTask]);
 
-  // Glitch effect
+  // Handle app going to background/foreground
+  const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    if (nextAppState === 'active' && status === 'running') {
+      // App came back to foreground - calculate elapsed time
+      const state = useTimerStore.getState();
+      const now = Date.now();
+      const startTimestamp = state.startTimestamp;
+
+      if (startTimestamp) {
+        const elapsedSeconds = Math.floor((now - startTimestamp) / 1000);
+        const expectedRemainingTime = state.totalTime - elapsedSeconds;
+
+        if (expectedRemainingTime <= 0) {
+          // Timer completed while in background
+          // Set remaining time to 0 and let tick() handle completion
+          useTimerStore.setState({ remainingTime: 0, startTimestamp: Date.now() });
+          tick();
+        } else {
+          // Update remaining time based on elapsed time and reset startTimestamp
+          useTimerStore.setState({
+            remainingTime: expectedRemainingTime,
+            startTimestamp: Date.now(), // Reset timestamp for future background calculations
+          });
+        }
+      }
+    }
+  }; // Glitch effect
   useEffect(() => {
     if (status === 'running') {
       const glitchInterval = setInterval(() => {
@@ -195,6 +250,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, i
   const handleStartPause = () => {
     if (status === 'running') {
       pauseTimer();
+      notificationService.stopTimerNotification();
     } else {
       startTimer();
     }
@@ -202,6 +258,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, i
 
   const handleStop = () => {
     stopTimer();
+    notificationService.stopTimerNotification();
   };
 
   const handleSwitchMode = () => {
@@ -256,7 +313,7 @@ export const PomodoroTimer: React.FC<PomodoroTimerProps> = ({ compact = false, i
     value: number,
     setValue: (val: number) => void,
     max: number,
-    scrollRef: React.RefObject<ScrollView>,
+    scrollRef: React.RefObject<ScrollView | null>,
     label: string
   ) => {
     const numbers = Array.from({ length: max + 1 }, (_, i) => i);

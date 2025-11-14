@@ -8,6 +8,7 @@ export const StorageKeys = {
   USERNAME: '@devtodo:username',
   THEME: '@devtodo:theme',
   FILES: '@devtodo:files', // Added for file management
+  TIMER_STATE: '@devtodo:timer_state', // Timer state for background persistence
 
   // Metadata
   LAST_SYNC: '@devtodo:last_sync',

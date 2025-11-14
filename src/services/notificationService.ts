@@ -4,16 +4,24 @@ import Constants from 'expo-constants';
 
 // Configure notification handler
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
+  handleNotification: async (notification) => {
+    // Check if this is a timer notification - make it completely silent
+    const isFocusTimer =
+      notification.request.content.data?.type === 'focus-timer' ||
+      notification.request.identifier === 'focus-timer-persistent';
+
+    return {
+      shouldShowBanner: !isFocusTimer, // Don't show banner for timer (only status bar)
+      shouldShowList: true, // Show in notification list
+      shouldPlaySound: !isFocusTimer, // Silent for timer
+      shouldSetBadge: !isFocusTimer, // No badge for timer
+    };
+  },
 });
 
 class NotificationService {
   private permissionGranted: boolean = false;
+  private timerNotificationId: string | null = null;
 
   /**
    * Request notification permissions from the user
@@ -109,6 +117,19 @@ class NotificationService {
           enableLights: true,
           lightColor: '#F48771', // Error/warning color
           enableVibrate: true,
+        });
+
+        // Channel for focus timer - persistent foreground service
+        await Notifications.setNotificationChannelAsync('focus-timer', {
+          name: 'Focus Timer',
+          description: 'Shows the running focus timer in the status bar',
+          importance: Notifications.AndroidImportance.LOW, // Low importance = no sound/vibration
+          sound: undefined,
+          vibrationPattern: [0], // No vibration
+          enableLights: false,
+          enableVibrate: false,
+          showBadge: false,
+          bypassDnd: false, // Don't bypass Do Not Disturb
         });
 
         console.log('✓ Notification channels configured');
@@ -463,6 +484,95 @@ class NotificationService {
       { type: 'weekly-summary', stats },
       'daily-summary'
     );
+  }
+
+  /**
+   * Start persistent timer notification in status bar
+   * Uses a single persistent notification that gets updated efficiently
+   * Silent and non-intrusive like fitness tracker apps
+   */
+  async startTimerNotification(
+    remainingTime: number,
+    type: 'focus' | 'break',
+    taskTitle?: string
+  ): Promise<void> {
+    try {
+      const hasPermission = await this.hasPermission();
+      if (!hasPermission) {
+        const granted = await this.requestPermissions();
+        if (!granted) return;
+      }
+
+      const minutes = Math.floor(remainingTime / 60);
+      const seconds = remainingTime % 60;
+      const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+
+      const emoji = type === 'focus' ? '🎯' : '☕';
+      const title = type === 'focus' ? 'Focus Session' : 'Break Time';
+
+      // Create a more detailed body like fitness trackers
+      let body = timeString;
+      if (taskTitle) {
+        body = `${taskTitle}\n${timeString} remaining`;
+      } else {
+        body = `${timeString} remaining`;
+      }
+
+      // For Android, we need to use identifier to update the same notification
+      const notificationIdentifier = 'focus-timer-persistent';
+
+      this.timerNotificationId = await Notifications.scheduleNotificationAsync({
+        identifier: notificationIdentifier,
+        content: {
+          title: `${emoji} ${title}`,
+          body,
+          sound: false, // Completely silent
+          priority: Notifications.AndroidNotificationPriority.LOW,
+          sticky: true, // Make it persistent - can't be swiped away easily
+          autoDismiss: false, // Don't auto-dismiss
+          categoryIdentifier: 'timer-controls',
+          data: {
+            type: 'focus-timer',
+            remainingTime,
+            timerType: type,
+          },
+          ...(Platform.OS === 'android' && {
+            channelId: 'focus-timer',
+            color: type === 'focus' ? '#007ACC' : '#4EC9B0',
+          }),
+        },
+        trigger: null,
+      });
+    } catch (error) {
+      console.log('Timer notification error:', error);
+    }
+  }
+
+  /**
+   * Update the timer notification efficiently
+   * This updates the existing notification instead of creating new ones
+   */
+  async updateTimerNotification(
+    remainingTime: number,
+    type: 'focus' | 'break',
+    taskTitle?: string
+  ): Promise<void> {
+    // Just call start which will update the notification with the same identifier
+    await this.startTimerNotification(remainingTime, type, taskTitle);
+  }
+
+  /**
+   * Stop and dismiss the timer notification
+   */
+  async stopTimerNotification(): Promise<void> {
+    try {
+      if (this.timerNotificationId) {
+        await Notifications.dismissNotificationAsync(this.timerNotificationId);
+        this.timerNotificationId = null;
+      }
+    } catch (error) {
+      console.log('Error dismissing timer notification:', error);
+    }
   }
 }
 

@@ -673,4 +673,52 @@ export class StorageService {
       throw new StorageError('Failed to save files', 'FILE_WRITE_ERROR');
     }
   }
+
+  // ==================== TIMER STATE OPERATIONS ====================
+
+  /**
+   * Get timer state from storage
+   */
+  static async getTimerState(): Promise<any | null> {
+    try {
+      const timerStateJson = await AsyncStorage.getItem(StorageKeys.TIMER_STATE);
+      if (!timerStateJson) return null;
+
+      const timerState = JSON.parse(timerStateJson);
+
+      // Parse dates
+      return {
+        ...timerState,
+        sessionStartTime: timerState.sessionStartTime
+          ? new Date(timerState.sessionStartTime)
+          : null,
+      };
+    } catch (error) {
+      console.error('Failed to get timer state:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Save timer state to storage
+   */
+  static async saveTimerState(timerState: any): Promise<void> {
+    try {
+      const timerStateJson = JSON.stringify(timerState);
+      await AsyncStorage.setItem(StorageKeys.TIMER_STATE, timerStateJson);
+    } catch (error) {
+      console.error('Failed to save timer state:', error);
+    }
+  }
+
+  /**
+   * Clear timer state from storage
+   */
+  static async clearTimerState(): Promise<void> {
+    try {
+      await AsyncStorage.removeItem(StorageKeys.TIMER_STATE);
+    } catch (error) {
+      console.error('Failed to clear timer state:', error);
+    }
+  }
 }

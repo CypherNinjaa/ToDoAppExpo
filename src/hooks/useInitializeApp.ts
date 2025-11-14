@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useTaskStore, useSettingsStore, useStatsStore } from '../stores';
 import { StorageService } from '../services/storageService';
 import { notificationService } from '../services/notificationService';
+import { initializeTimerFromStorage } from '../stores/timerStore';
 
 export const useInitializeApp = () => {
   const [isInitialized, setIsInitialized] = useState(false);
@@ -23,7 +24,7 @@ export const useInitializeApp = () => {
         await notificationService.initialize();
 
         // Load all stores in parallel
-        await Promise.all([loadTasks(), loadSettings(), loadStats()]);
+        await Promise.all([loadTasks(), loadSettings(), loadStats(), initializeTimerFromStorage()]);
 
         setIsInitialized(true);
       } catch (err) {
