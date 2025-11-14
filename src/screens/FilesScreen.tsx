@@ -17,10 +17,9 @@ import * as DocumentPicker from 'expo-document-picker';
 import * as Sharing from 'expo-sharing';
 import * as IntentLauncher from 'expo-intent-launcher';
 import * as FileSystem from 'expo-file-system/legacy';
-import { Ionicons } from 'expo-vector-icons';
 import Pdf from 'react-native-pdf';
 import { Theme, CommonStyles } from '../constants';
-import { useFileStore, useTaskStore } from '../stores';
+import { useFileStore } from '../stores';
 import { TrackedFile, FileCategory, FileFilter } from '../types/file.types';
 import { SearchBar, FilterPanel } from '../components/inputs';
 
@@ -40,8 +39,6 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
   const toggleFavorite = useFileStore((state) => state.toggleFavorite);
   const incrementAccessCount = useFileStore((state) => state.incrementAccessCount);
   const getFilteredFiles = useFileStore((state) => state.getFilteredFiles);
-
-  const tasks = useTaskStore((state) => state.tasks);
 
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
@@ -351,14 +348,14 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
     ]);
   };
 
-  const getCategoryIcon = (category: FileCategory): keyof typeof Ionicons.glyphMap => {
-    const icons: Record<FileCategory, keyof typeof Ionicons.glyphMap> = {
-      document: 'document-text',
-      code: 'code-slash',
-      design: 'color-palette',
-      media: 'image',
-      archive: 'archive',
-      other: 'document',
+  const getCategoryIcon = (category: FileCategory): string => {
+    const icons: Record<FileCategory, string> = {
+      document: '📄',
+      code: '💻',
+      design: '🎨',
+      media: '🖼️',
+      archive: '📦',
+      other: '📁',
     };
     return icons[category];
   };
@@ -391,7 +388,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
     >
       <View style={styles.fileHeader}>
         <View style={styles.fileIconContainer}>
-          <Ionicons name={getCategoryIcon(file.category)} size={24} color={Theme.colors.success} />
+          <Text style={styles.fileIcon}>{getCategoryIcon(file.category)}</Text>
         </View>
         <View style={styles.fileInfo}>
           <View style={styles.fileNameRow}>
@@ -413,11 +410,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
           }}
           hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
         >
-          <Ionicons
-            name={file.isFavorite ? 'star' : 'star-outline'}
-            size={24}
-            color={file.isFavorite ? Theme.colors.warning : Theme.colors.textSecondary}
-          />
+          <Text style={styles.favoriteIcon}>{file.isFavorite ? '⭐' : '☆'}</Text>
         </TouchableOpacity>
       </View>
 
@@ -442,7 +435,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
           style={styles.fileActionButton}
           onPress={() => handleDeleteFile(file.id, file.name)}
         >
-          <Ionicons name="trash-outline" size={18} color={Theme.colors.error} />
+          <Text style={styles.deleteIcon}>🗑️</Text>
           <Text style={styles.fileActionButtonText}>Remove</Text>
         </TouchableOpacity>
       </View>
@@ -560,7 +553,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
         }
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
-            <Ionicons name="folder-open-outline" size={64} color={Theme.colors.textSecondary} />
+            <Text style={styles.emptyIcon}>📂</Text>
             <Text style={styles.emptyText}>No files tracked yet</Text>
             <Text style={styles.emptySubtext}>
               Tap the + button to add important files to track
@@ -571,7 +564,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
 
       {/* Add File Button */}
       <TouchableOpacity style={styles.addButton} onPress={handlePickFile}>
-        <Ionicons name="add" size={32} color={Theme.colors.background} />
+        <Text style={styles.addButtonText}>+</Text>
       </TouchableOpacity>
 
       {/* Image Viewer Modal */}
@@ -585,7 +578,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
             style={styles.imageViewerCloseButton}
             onPress={() => setViewingImageUri(null)}
           >
-            <Ionicons name="close" size={32} color="#fff" />
+            <Text style={styles.closeButtonText}>✕</Text>
           </TouchableOpacity>
           <Image
             source={{ uri: viewingImageUri || undefined }}
@@ -603,7 +596,7 @@ export const FilesScreen: React.FC<FilesScreenProps> = ({ username }) => {
       >
         <View style={styles.pdfViewerContainer}>
           <TouchableOpacity style={styles.pdfViewerCloseButton} onPress={() => setViewingPdf(null)}>
-            <Ionicons name="close" size={32} color={Theme.colors.textPrimary} />
+            <Text style={styles.pdfCloseButtonText}>✕</Text>
           </TouchableOpacity>
           {viewingPdf && (
             <Pdf
@@ -769,6 +762,34 @@ const styles = StyleSheet.create({
     backgroundColor: Theme.colors.success + '20',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  fileIcon: {
+    fontSize: 24,
+  },
+  favoriteIcon: {
+    fontSize: 24,
+    color: Theme.colors.warning,
+  },
+  deleteIcon: {
+    fontSize: 16,
+  },
+  emptyIcon: {
+    fontSize: 64,
+  },
+  addButtonText: {
+    fontSize: 32,
+    color: Theme.colors.background,
+    fontWeight: 'bold',
+  },
+  closeButtonText: {
+    fontSize: 32,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  pdfCloseButtonText: {
+    fontSize: 32,
+    color: Theme.colors.textPrimary,
+    fontWeight: 'bold',
   },
   fileInfo: {
     flex: 1,
