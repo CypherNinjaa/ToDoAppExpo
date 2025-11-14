@@ -3,6 +3,7 @@ import { View, TouchableOpacity, Text, StyleSheet, Animated } from 'react-native
 import LottieView from 'lottie-react-native';
 import {
   DashboardScreen,
+  DeveloperProfileScreen,
   TasksScreen,
   CalendarScreen,
   SettingsScreen,

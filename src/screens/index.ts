@@ -1,4 +1,5 @@
 export { DashboardScreen } from './DashboardScreen';
+export { DeveloperProfileScreen } from './DeveloperProfileScreen';
 export { TasksScreen } from './TasksScreen';
 export { CalendarScreen } from './CalendarScreen';
 export { SettingsScreen } from './SettingsScreen';

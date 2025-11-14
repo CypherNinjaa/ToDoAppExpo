@@ -10,6 +10,7 @@ import {
   TimerSettings,
 } from '../components/inputs';
 import { ExportImportScreen } from './ExportImportScreen';
+import { DeveloperProfileScreen } from './DeveloperProfileScreen';
 import { useThemeStore } from '../stores/themeStore';
 import {
   testNotificationDelivery,
@@ -24,6 +25,7 @@ interface SettingsScreenProps {
 export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
   const [displayedText, setDisplayedText] = useState('');
   const [showExportImport, setShowExportImport] = useState(false);
+  const [showDeveloperProfile, setShowDeveloperProfile] = useState(false);
   const fullText = '~$ ./configure.sh';
   const { getThemeColors } = useThemeStore();
 
@@ -220,6 +222,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
             </TouchableOpacity>
           </View>
         </View>
+
+        {/* About Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: colors.variable }]}>{'// About'}</Text>
+
+          <TouchableOpacity
+            style={[
+              styles.testButton,
+              {
+                backgroundColor: colors.primary + '20',
+                borderColor: colors.primary,
+              },
+            ]}
+            onPress={() => setShowDeveloperProfile(true)}
+          >
+            <Text style={[styles.testButtonText, { color: colors.primary }]}>
+              $ whoami --developer
+            </Text>
+            <Text style={[styles.testButtonSubtext, { color: colors.comment }]}>
+              // View developer profile
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* Export/Import Modal */}
@@ -230,6 +255,29 @@ export const SettingsScreen: React.FC<SettingsScreenProps> = ({ username }) => {
         onRequestClose={() => setShowExportImport(false)}
       >
         <ExportImportScreen onClose={() => setShowExportImport(false)} />
+      </Modal>
+
+      {/* Developer Profile Modal */}
+      <Modal
+        visible={showDeveloperProfile}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowDeveloperProfile(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: colors.background }}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+            <Text style={[styles.modalTitle, { color: colors.primary }]}>
+              {'// Developer Profile'}
+            </Text>
+            <TouchableOpacity
+              style={[styles.closeButton, { borderColor: colors.border }]}
+              onPress={() => setShowDeveloperProfile(false)}
+            >
+              <Text style={[styles.closeButtonText, { color: colors.textPrimary }]}>✕</Text>
+            </TouchableOpacity>
+          </View>
+          <DeveloperProfileScreen />
+        </View>
       </Modal>
     </View>
   );
@@ -296,5 +344,30 @@ const styles = StyleSheet.create({
   dangerButtonSubtext: {
     fontFamily: Theme.typography.fontFamily.mono,
     fontSize: Theme.typography.fontSize.xs,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+  },
+  modalTitle: {
+    fontFamily: Theme.typography.fontFamily.monoSemiBold,
+    fontSize: 18,
+  },
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 4,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  closeButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
   },
 });
